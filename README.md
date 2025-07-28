@@ -19,9 +19,9 @@ CLI tools for maintaining Markdown content like documentation and tutorials.
 ## Installation
 
 ```bash
-npm install -g @awslabs/toolkit-md
+npm install -g @aws/toolkit-md
 # or
-yarn global add @awslabs/toolkit-md
+yarn global add @aws/toolkit-md
 ```
 
 ## Quick Start
