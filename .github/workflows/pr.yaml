@@ -1,0 +1,72 @@
+name: Pull request
+
+"on":
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  test:
+    name: "Test"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Biome
+        run: yarn biome ci .
+
+      - name: Run tsc
+        run: yarn tsc
+
+      - name: Run build
+        run: yarn build
+
+      - name: Run test
+        run: yarn test
+
+  check-licenses:
+    name: "Check licenses"
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Log node version
+        run: node --version
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: "0"
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Check
+        run: yarn license-check
+
+  semanticpr:
+    name: Semantic Pull Request
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

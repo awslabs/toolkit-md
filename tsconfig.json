@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "outDir": "./dist",
+    "importHelpers": true,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "strict": true,
+    "sourceMap": true,
+    "allowJs": true
+  }
+}
