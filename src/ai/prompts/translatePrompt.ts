@@ -32,14 +32,9 @@ import {
 
 const template = `Your task is to translate the content provided for file "{{currentNode.path}}" to {{targetLanguage.name}} ({{targetLanguage.code}}).
 
-- DO NOT make any changes not related to translating the content
-- ALWAYS return the entire translated file, do not abbreviate it
-- ALWAYS add or update the Markdown frontmatter with a key '${TRANSLATION_SRC_HASH_KEY}' with value '{{sourceHash}}'
-- DO NOT alter text that appears to be logging
-- DO NOT alter any content in markdown code fences indicated by \`\`\` or ':::code' such as bash commands or its associated output
-- DO NOT alter the weight or sidebar_position values
-- DO NOT remove any content in markdown inside the lines <!-- prettier-ignore-start --> and <!-- prettier-ignore-end -->
-- DO NOT add a new line at the end of the file
+DO NOT make any changes not related to translating the content
+ALWAYS return the entire translated file, do not abbreviate it
+ALWAYS add or update the Markdown frontmatter with a key '${TRANSLATION_SRC_HASH_KEY}' with value '{{sourceHash}}'
 
 Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in <file></file> including the path to the file as an attribute
 

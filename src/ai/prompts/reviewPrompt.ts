@@ -25,17 +25,7 @@ import {
   getContext,
 } from "./utils.js";
 
-const template = `Your task is to:
-- Review the content provided for file "{{file}}" and update it to improve it in terms of style, grammar and syntax
-- Leave the overall structure of the page the same
-- Make sure that explanations surrounding code snippets are accurate
-- DO NOT alter text that appears to be logging
-- DO NOT alter any content in markdown code fences indicated by \`\`\` or ':::code' such as bash commands or its associated output
-- DO NOT alter the weight or sidebar_position values
-- DO NOT alter the frontmatter or any other YAML content
-- DO NOT remove Markdown formatting like bold or italics from text
-- DO NOT remove any content in markdown inside the lines <!-- prettier-ignore-start --> and <!-- prettier-ignore-end -->
-- DO NOT add a new line at the end of the file
+const template = `Your task is to review the content provided for file "{{file}}" and update it to improve it in terms of style, grammar and syntax.
 
 Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in <file></file> including the path to the file as an attribute`;
 
