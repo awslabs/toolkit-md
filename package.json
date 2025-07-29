@@ -7,9 +7,14 @@
     "type": "git",
     "url": "github:awslabs/toolkit-md"
   },
-  "directories": {
-    "lib": "lib"
-  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "docs",
+    "LICENSE",
+    "NOTICE"
+  ],
   "bin": "./dist/cli.js",
   "type": "module",
   "scripts": {
