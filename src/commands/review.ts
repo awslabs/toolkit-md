@@ -1,5 +1,5 @@
 /**
- * Copyright 2025 bleh
+ * Copyright 2025 Amazon.com, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ async function executeAction(content: string, options: any): Promise<void> {
   console.log("Reviewing content...");
 
   const config = new ConfigManager();
-  config.initialize(options);
+  await config.initialize(options);
 
   const baseDir = utils.getBaseDir(config);
 

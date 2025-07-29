@@ -55,7 +55,7 @@ async function executeAction(content: string, options: any): Promise<void> {
   }
 
   const config = new ConfigManager();
-  config.initialize(options);
+  await config.initialize(options);
 
   const baseDir = utils.getBaseDir(config);
 
