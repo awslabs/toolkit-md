@@ -368,29 +368,6 @@ Ceci est du contenu de test.`);
     expect(result.prompt).toContain("to Español (Estados Unidos) (es-US)");
   });
 
-  test("should preserve all translation constraints in prompt", () => {
-    const currentNode = createMockTreeNode(
-      "/content/test.md",
-      "# Test Content\nThis is test content.",
-    );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
-
-    const result = buildTranslatePrompt(
-      tree,
-      currentNode,
-      sourceContent,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
-    );
-  });
-
   test("should handle complex content with special formatting", () => {
     const complexContent = `---
 title: "Test Page"
