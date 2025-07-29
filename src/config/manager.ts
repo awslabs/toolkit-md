@@ -221,10 +221,8 @@ export class ConfigManager {
         // No config file found, use empty object
         this.fileConfig = {};
       }
-    } catch {
-      // Reset to empty object on error
-      this.fileConfig = {};
-      // Don't throw here to allow the application to continue without a config file
+    } catch (error: any) {
+      throw new Error(`Failed to load config file: ${error.message}`);
     }
   }
 
