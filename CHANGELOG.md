@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/awslabs/toolkit-md/compare/v0.1.1...v0.1.2) (2025-07-29)
+
+
+### Bug Fixes
+
+* Issue with config file loading ([2128839](https://github.com/awslabs/toolkit-md/commit/21288390f1c07e5a4310e8f403c11ae62b700f02))
+
 ## [0.1.1](https://github.com/awslabs/toolkit-md/compare/v0.1.0...v0.1.1) (2025-07-29)
 
 
