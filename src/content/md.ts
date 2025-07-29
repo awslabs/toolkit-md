@@ -327,10 +327,7 @@ export class MarkdownTree {
 
     return {
       frontmatter: frontmatter.data,
-      weight:
-        frontmatter.data.weight !== undefined
-          ? Number(frontmatter.data.weight)
-          : 999,
+      weight: determineContentWeight(frontmatter.data),
     };
   }
 
@@ -776,6 +773,31 @@ export function getFlattenedTree(
 ) {
   const tree = new MarkdownTree(rootPath, defaultLanguage);
   return tree.getFlattenedTree();
+}
+
+/**
+ * Determines the weight of content based on frontmatter properties.
+ *
+ * Checks for weight-related properties in the frontmatter and returns
+ * a numeric weight for sorting purposes. Prioritizes "weight" over
+ * "sidebar_position" and defaults to 999 if neither is found.
+ *
+ * @param frontmatter - Parsed frontmatter data as key-value pairs
+ * @returns Numeric weight for sorting, lower values appear first
+ */
+function determineContentWeight(frontmatter: Record<string, unknown>): number {
+  // First check for explicit weight property
+  if (frontmatter.weight !== undefined) {
+    return Number(frontmatter.weight);
+  }
+
+  // Fall back to sidebar_position if weight is not specified
+  if (frontmatter.sidebar_position !== undefined) {
+    return Number(frontmatter.sidebar_position);
+  }
+
+  // Default weight if neither property is found
+  return 999;
 }
 
 /**

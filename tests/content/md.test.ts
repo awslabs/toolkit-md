@@ -150,6 +150,65 @@ describe("MarkdownTree", () => {
       expect(lowNode?.weight).toBe(100);
     });
 
+    test("should handle sidebar_position frontmatter correctly", () => {
+      const rootPath = "/test-root";
+      mock({
+        [rootPath]: {
+          "first.md": "---\nsidebar_position: 1\n---\n# First",
+          "third.md": "---\nsidebar_position: 3\n---\n# Third",
+          "second.md": "---\nsidebar_position: 2\n---\n# Second",
+        },
+      });
+
+      const tree = new MarkdownTree(rootPath);
+      const flattenedTree = tree.getFlattenedTree();
+
+      expect(flattenedTree.length).toBe(3);
+
+      const firstNode = flattenedTree[0];
+      const secondNode = flattenedTree[1];
+      const thirdNode = flattenedTree[2];
+
+      expect(firstNode).toBeDefined();
+      expect(firstNode?.weight).toBe(1);
+
+      expect(secondNode).toBeDefined();
+      expect(secondNode?.weight).toBe(2);
+
+      expect(thirdNode).toBeDefined();
+      expect(thirdNode?.weight).toBe(3);
+    });
+
+    test("should prioritize weight over sidebar_position", () => {
+      const rootPath = "/test-root";
+      mock({
+        [rootPath]: {
+          "explicit-weight.md":
+            "---\nweight: 5\nsidebar_position: 10\n---\n# Explicit Weight",
+          "sidebar-only.md": "---\nsidebar_position: 3\n---\n# Sidebar Only",
+          "no-weight.md": "# No Weight",
+        },
+      });
+
+      const tree = new MarkdownTree(rootPath);
+      const flattenedTree = tree.getFlattenedTree();
+
+      expect(flattenedTree.length).toBe(3);
+
+      const sidebarOnlyNode = flattenedTree[0];
+      const explicitWeightNode = flattenedTree[1];
+      const noWeightNode = flattenedTree[2];
+
+      expect(sidebarOnlyNode).toBeDefined();
+      expect(sidebarOnlyNode?.weight).toBe(3);
+
+      expect(explicitWeightNode).toBeDefined();
+      expect(explicitWeightNode?.weight).toBe(5); // weight takes precedence over sidebar_position
+
+      expect(noWeightNode).toBeDefined();
+      expect(noWeightNode?.weight).toBe(999); // default weight
+    });
+
     test("should handle index files correctly", () => {
       const rootPath = "/test-root";
       mock({
