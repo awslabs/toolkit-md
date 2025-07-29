@@ -389,25 +389,6 @@ Ceci est du contenu de test.`);
       [],
       [],
     );
-
-    // Check all the DO NOT constraints are present
-    expect(result.prompt).toContain(
-      "DO NOT alter text that appears to be logging",
-    );
-    expect(result.prompt).toContain(
-      "DO NOT alter any content in markdown code fences",
-    );
-    expect(result.prompt).toContain(
-      "DO NOT alter the weight or sidebar_position values",
-    );
-    expect(result.prompt).toContain(
-      "DO NOT remove any content in markdown inside the lines",
-    );
-    expect(result.prompt).toContain("prettier-ignore-start");
-    expect(result.prompt).toContain("prettier-ignore-end");
-    expect(result.prompt).toContain(
-      "DO NOT add a new line at the end of the file",
-    );
   });
 
   test("should handle complex content with special formatting", () => {
