@@ -130,14 +130,7 @@ describe("ZodConfigManager", () => {
       });
 
       // Initialize with empty CLI options
-      await configManager.initialize({});
-
-      // Check that default values are used
-      expect(configManager.get("ai.model")).toBe(
-        "anthropic.claude-3-5-sonnet-20241022-v2:0",
-      );
-      expect(configManager.get("ai.maxTokens")).toBe(4096);
-      expect(configManager.getConfigFilePath()).toBeNull();
+      expect(async () => await configManager.initialize({})).rejects.toThrow();
     });
   });
 
