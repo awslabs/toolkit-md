@@ -23,6 +23,10 @@ import {
 } from "./commands/index.js";
 import { logoText, rainbowText } from "./utils.js";
 
+// x-release-please-start-version
+export const VERSION = "0.1.3";
+// x-release-please-end
+
 console.log(rainbowText(logoText));
 
 process.on("SIGINT", () => {
@@ -33,6 +37,7 @@ process.on("SIGINT", () => {
 const program = new Command();
 program
   .description("Various tools to help maintain Markdown content")
+  .version(VERSION)
   .addCommand(createReviewCommand())
   .addCommand(createTranslateCommand())
   .addCommand(createAskCommand());
