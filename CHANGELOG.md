@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/awslabs/toolkit-md/compare/v0.1.4...v0.1.5) (2025-08-01)
+
+
+### Bug Fixes
+
+* Summary not correct when writing to files ([db573cd](https://github.com/awslabs/toolkit-md/commit/db573cd5271c3a3335898fd5a22e397cef468204))
+
 ## [0.1.4](https://github.com/awslabs/toolkit-md/compare/v0.1.3...v0.1.4) (2025-08-01)
 
 
