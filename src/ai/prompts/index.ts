@@ -17,6 +17,7 @@
 export * from "./askPrompt.js";
 export * from "./contextPrompt.js";
 export * from "./reviewPrompt.js";
+export * from "./summaryPrompt.js";
 export * from "./translatePrompt.js";
 
 export * from "./types.js";

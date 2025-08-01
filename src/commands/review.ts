@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
+import * as fs from "node:fs";
 import { Command } from "commander";
-import { buildReviewPrompt, DefaultBedrockClient } from "../ai/index.js";
-import { ConfigManager } from "../config/index.js";
+import { createPatch } from "diff";
+import {
+  buildReviewPrompt,
+  buildSummarizePrompt,
+  DefaultBedrockClient,
+  type FileDiff,
+} from "../ai/index.js";
+import { CONFIG_REVIEW_SUMMARY_PATH, ConfigManager } from "../config/index.js";
 import { MarkdownTree } from "../content/index.js";
 import {
   commonOptions,
@@ -42,6 +49,8 @@ export function createReviewCommand(): Command {
     .argument("<content>", "file path to content to review")
     .description("Reviews the given content")
     .action(utils.withErrorHandling("Review", executeAction));
+
+  utils.optionForConfigSchema(command, CONFIG_REVIEW_SUMMARY_PATH);
 
   return command;
 }
@@ -71,6 +80,8 @@ async function executeAction(content: string, options: any): Promise<void> {
     language,
   ]);
 
+  const summaryPath = config.get<string>("ai.review.summaryPath");
+
   console.log("\n");
 
   const tree = new MarkdownTree(
@@ -87,6 +98,8 @@ async function executeAction(content: string, options: any): Promise<void> {
     tokenRate,
     5,
   );
+
+  const diffs: FileDiff[] = [];
 
   for (const node of nodes) {
     const languageContent = node.languages.get(language.code);
@@ -122,7 +135,30 @@ async function executeAction(content: string, options: any): Promise<void> {
         utils.displayDiff(languageContent.content, response.output);
       }
 
+      diffs.push({
+        path: languageContent.path,
+        diff: createPatch(
+          languageContent.path,
+          languageContent.content,
+          response.output,
+        ),
+      });
+
       console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);
     }
+  }
+
+  if (summaryPath.length > 0) {
+    const summaryPrompt = buildSummarizePrompt(diffs);
+
+    await utils.withSpinner(`Writing summary to ${summaryPath}`, async () => {
+      const response = await client.generate(summaryPrompt);
+
+      fs.writeFileSync(
+        utils.buildPath(summaryPath, baseDir),
+        response.output,
+        "utf-8",
+      );
+    });
   }
 }

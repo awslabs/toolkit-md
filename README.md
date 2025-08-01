@@ -66,21 +66,22 @@ Toolkit for Markdown supports configuration through:
 
 **Configuration Options:**
 
-| Config Path            | CLI Flag             | Environment Variable         | Description                                                                                  | Default                                       |
-| ---------------------- | -------------------- | ---------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `baseDir`              | `--base-dir`         | `TKMD_BASE_DIR`              | Base directory for relative paths                                                            | `"."`                                         |
-| `language`             | `--language`         | `TKMD_LANGUAGE`              | Source language code                                                                         | `"en"`                                        |
-| `defaultLanguage`      | `--default-language` | `TKMD_DEFAULT_LANGUAGE`      | Language for files without explicit markers                                                  | `"en"`                                        |
-| `ai.model`             | `--model`            | `TKMD_AI_MODEL`              | Amazon Bedrock model ID                                                                      | `"anthropic.claude-3-5-sonnet-20241022-v2:0"` |
-| `ai.maxTokens`         | `--max-tokens`       | `TKMD_AI_MAX_TOKENS`         | Maximum output tokens                                                                        | `4096`                                        |
-| `ai.write`             | `--write`            | `TKMD_AI_WRITE`              | Write changes directly to files                                                              | `false`                                       |
-| `ai.rate.requests`     | `--request-rate`     | `TKMD_AI_REQUEST_RATE_LIMIT` | Max requests per minute (0 = unlimited)                                                      | `0`                                           |
-| `ai.rate.tokens`       | `--token-rate`       | `TKMD_AI_TOKEN_RATE_LIMIT`   | Max tokens per minute (0 = unlimited)                                                        | `0`                                           |
-| `ai.contextStrategy`   | `--context-strategy` | `TKMD_AI_CONTEXT_STRATEGY`   | Context inclusion: "siblings", "nothing", "everything"                                       | `"nothing"`                                   |
-| `ai.exemplars`         | `--exemplar`         | `TKMD_AI_EXEMPLAR_*`         | Path to directory of content to use as an example to follow, can be specified multiple times | `[]`                                          |
-| `ai.styleGuides`       | `--style-guide`      | `TKMD_AI_STYLE_GUIDE_*`      | Path to style guide file, can be specified multiple times                                    | `[]`                                          |
-| `ai.translation.force` | `--force`            | `TKMD_AI_FORCE_TRANSLATION`  | Force translation even if source unchanged                                                   | `false`                                       |
-| `ai.translation.check` | `--check`            | `TKMD_AI_CHECK_TRANSLATION`  | Only check if translation needed                                                             | `false`                                       |
+| Config Path             | CLI Flag             | Environment Variable          | Description                                                                                  | Default                                       |
+| ----------------------- | -------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `baseDir`               | `--base-dir`         | `TKMD_BASE_DIR`               | Base directory for relative paths                                                            | `"."`                                         |
+| `language`              | `--language`         | `TKMD_LANGUAGE`               | Source language code                                                                         | `"en"`                                        |
+| `defaultLanguage`       | `--default-language` | `TKMD_DEFAULT_LANGUAGE`       | Language for files without explicit markers                                                  | `"en"`                                        |
+| `ai.model`              | `--model`            | `TKMD_AI_MODEL`               | Amazon Bedrock model ID                                                                      | `"anthropic.claude-3-5-sonnet-20241022-v2:0"` |
+| `ai.maxTokens`          | `--max-tokens`       | `TKMD_AI_MAX_TOKENS`          | Maximum output tokens                                                                        | `4096`                                        |
+| `ai.write`              | `--write`            | `TKMD_AI_WRITE`               | Write changes directly to files                                                              | `false`                                       |
+| `ai.rate.requests`      | `--request-rate`     | `TKMD_AI_REQUEST_RATE_LIMIT`  | Max requests per minute (0 = unlimited)                                                      | `0`                                           |
+| `ai.rate.tokens`        | `--token-rate`       | `TKMD_AI_TOKEN_RATE_LIMIT`    | Max tokens per minute (0 = unlimited)                                                        | `0`                                           |
+| `ai.contextStrategy`    | `--context-strategy` | `TKMD_AI_CONTEXT_STRATEGY`    | Context inclusion: "siblings", "nothing", "everything"                                       | `"nothing"`                                   |
+| `ai.exemplars`          | `--exemplar`         | `TKMD_AI_EXEMPLAR_*`          | Path to directory of content to use as an example to follow, can be specified multiple times | `[]`                                          |
+| `ai.styleGuides`        | `--style-guide`      | `TKMD_AI_STYLE_GUIDE_*`       | Path to style guide file, can be specified multiple times                                    | `[]`                                          |
+| `ai.review.summaryFile` | `--summary-file`     | `TKMD_AI_REVIEW_SUMMARY_PATH` | Write a summary of the review changes to the provided file path in Markdown format           | `""`                                          |
+| `ai.translation.force`  | `--force`            | `TKMD_AI_FORCE_TRANSLATION`   | Force translation even if source unchanged                                                   | `false`                                       |
+| `ai.translation.check`  | `--check`            | `TKMD_AI_CHECK_TRANSLATION`   | Only check if translation needed                                                             | `false`                                       |
 
 **Note:** For array values (exemplars, styleGuides), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
 
@@ -242,6 +243,7 @@ toolkit-md review ./docs --write --style-guide ./guides/style.md --context-strat
 - `--context-strategy`
 - `--exemplar`
 - `--style-guide`
+- `--summary-file`
 
 ### `translate`
 

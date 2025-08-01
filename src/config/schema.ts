@@ -129,6 +129,12 @@ export const CONFIG_RATE_LIMIT_TOKENS = withConfig(
   "TKMD_AI_TOKEN_RATE_LIMIT",
 );
 
+export const CONFIG_REVIEW_SUMMARY_PATH = withConfig(
+  z.string().describe("Write summary to this file").default(""),
+  "summaryPath",
+  "TKMD_AI_REVIEW_SUMMARY_PATH",
+);
+
 export const CONFIG_FORCE_TRANSLATION = withConfig(
   z
     .boolean()
@@ -189,6 +195,9 @@ export const configSchema = z.object({
     contextStrategy: CONFIG_CONTEXT_STRATEGY,
     exemplars: CONFIG_EXEMPLARS,
     styleGuides: CONFIG_STYLE_GUIDES,
+    review: z.object({
+      summaryPath: CONFIG_REVIEW_SUMMARY_PATH,
+    }),
     translation: z.object({
       force: CONFIG_FORCE_TRANSLATION,
       check: CONFIG_CHECK_TRANSLATION,
