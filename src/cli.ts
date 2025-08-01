@@ -24,7 +24,7 @@ import {
 import { logoText, rainbowText } from "./utils.js";
 
 // x-release-please-start-version
-export const VERSION = "0.1.3";
+export const VERSION = "0.1.4";
 // x-release-please-end
 
 console.log(rainbowText(logoText));
