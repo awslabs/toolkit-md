@@ -121,6 +121,15 @@ async function executeAction(content: string, options: any): Promise<void> {
         },
       );
 
+      diffs.push({
+        path: languageContent.path,
+        diff: createPatch(
+          languageContent.path,
+          languageContent.content,
+          response.output,
+        ),
+      });
+
       if (write) {
         const { languageContent } = tree.addOrUpdateContent(
           node.path,
@@ -134,15 +143,6 @@ async function executeAction(content: string, options: any): Promise<void> {
       } else {
         utils.displayDiff(languageContent.content, response.output);
       }
-
-      diffs.push({
-        path: languageContent.path,
-        diff: createPatch(
-          languageContent.path,
-          languageContent.content,
-          response.output,
-        ),
-      });
 
       console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);
     }

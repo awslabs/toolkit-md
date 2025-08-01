@@ -78,13 +78,13 @@ export function extractFileSection(input: string): FileSection {
   const parsed = parser.parse(input);
 
   if (parsed.file) {
-    const text = parsed.file["#text"];
+    const text: string = parsed.file["#text"];
     const path = parsed.file["@_path"];
 
     if (text && path) {
       return {
         path,
-        content: text,
+        content: text.trimStart(),
       };
     }
   }
