@@ -79,9 +79,11 @@ export function validatePathWithinCwd(targetPath: string, cwd: string): void {
   const resolvedTarget = path.resolve(targetPath);
   const resolvedCwd = path.resolve(cwd);
   const relative = path.relative(resolvedCwd, resolvedTarget);
-  
+
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(`Access denied: path '${targetPath}' is outside the working directory`);
+    throw new Error(
+      `Access denied: path '${targetPath}' is outside the working directory`,
+    );
   }
 }
 
