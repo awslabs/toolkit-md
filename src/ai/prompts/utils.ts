@@ -16,6 +16,7 @@
 
 import { XMLParser } from "fast-xml-parser";
 import type { MarkdownTree, TreeNode } from "../../content/index.js";
+import type { Language } from "../../languages/index.js";
 
 export type ContextStrategy = "everything" | "nothing" | "siblings";
 
@@ -70,6 +71,24 @@ interface FileSection {
   content: string;
 }
 
+export function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+export function unescapeXml(str: string): string {
+  return str
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
 export function extractFileSection(input: string): FileSection {
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -84,10 +103,29 @@ export function extractFileSection(input: string): FileSection {
     if (text && path) {
       return {
         path,
-        content: text.trimStart(),
+        content: unescapeXml(text.trimStart()),
       };
     }
   }
 
   throw new Error("Failed to parse file response");
+}
+
+export interface File {
+  path: string;
+  content: string;
+}
+
+export function buildFileList(nodes: TreeNode[], language: Language): File[] {
+  return nodes
+    .filter((e) => e.languages.has(language.code))
+    .map((e) => {
+      const languageEntry = e.languages.get(language.code);
+
+      return {
+        path: e.path,
+        // biome-ignore lint/style/noNonNullAssertion: Filtered above
+        content: escapeXml(languageEntry!.content),
+      };
+    });
 }

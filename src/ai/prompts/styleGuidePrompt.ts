@@ -14,9 +14,23 @@
  * limitations under the License.
  */
 
-export * from "./ask.js";
-export * from "./mcp.js";
-export * from "./review.js";
-export * from "./translate.js";
+import Handlebars from "handlebars";
 
-export * from "./utils.js";
+const template = `{{#if styleGuides.length}}
+The follow are style guidelines that the content should follow contained between <style></style> tags:
+{{#each styleGuides}}
+<style>
+{{{this}}}
+</style>
+{{/each}}
+{{/if}}`;
+
+export function buildStyleGuidePrompt(styleGuides: string[]) {
+  if (styleGuides.length === 0) return "";
+
+  const promptTemplate = Handlebars.compile(template);
+
+  return promptTemplate({
+    styleGuides,
+  }).trim();
+}

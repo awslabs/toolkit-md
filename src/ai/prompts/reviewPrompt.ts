@@ -18,7 +18,7 @@ import Handlebars from "handlebars";
 import type { MarkdownTree, TreeNode } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
-import type { Prompt } from "./types.js";
+import type { Exemplar, Prompt } from "./types.js";
 import {
   type ContextStrategy,
   extractFileSection,
@@ -27,7 +27,14 @@ import {
 
 const template = `Your task is to review the content provided for file "{{file}}" and update it to improve it in terms of style, grammar and syntax.
 
-Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in <file></file> including the path to the file as an attribute`;
+{{#if instructions}}
+In additional you've been provided the following additional instructions:
+{{{instructions}}}
+{{/if}}
+
+Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in <file></file> including the path to the file as an attribute.
+
+ONLY respond with the content between the "<file></file>" tags.`;
 
 export function buildReviewPrompt(
   tree: MarkdownTree,
@@ -35,7 +42,8 @@ export function buildReviewPrompt(
   language: Language,
   contextStrategy: ContextStrategy,
   styleGuides: string[],
-  exemplarNodes: TreeNode[],
+  exemplars: Exemplar[],
+  instructions?: string,
 ): Prompt {
   const promptTemplate = Handlebars.compile(template);
 
@@ -45,13 +53,14 @@ export function buildReviewPrompt(
     contextNodes,
     language,
     styleGuides,
-    exemplarNodes,
+    exemplars,
   );
 
   return {
     context,
     prompt: promptTemplate({
       file: currentNode.path,
+      instructions,
     }),
     sampleOutput: currentNode.languages.get(language.code)?.content,
     prefill: `<file path="${currentNode.path}">`,

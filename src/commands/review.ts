@@ -23,10 +23,16 @@ import {
   DefaultBedrockClient,
   type FileDiff,
 } from "../ai/index.js";
-import { CONFIG_REVIEW_SUMMARY_PATH, ConfigManager } from "../config/index.js";
-import { MarkdownTree } from "../content/index.js";
 import {
-  commonOptions,
+  CONFIG_REVIEW_INSTRUCTIONS,
+  CONFIG_REVIEW_SUMMARY_PATH,
+  ConfigManager,
+} from "../config/index.js";
+import { MarkdownTree } from "../content/index.js";
+import type { LogWriter } from "./logger.js";
+import { logo } from "./logo.js";
+import {
+  commonAiOptions,
   contextOptions,
   exemplarOption,
   fileWriteOptions,
@@ -38,7 +44,7 @@ import * as utils from "./utils.js";
 export function createReviewCommand(): Command {
   const command = new Command("review");
 
-  commonOptions(command);
+  commonAiOptions(command);
   fileWriteOptions(command);
   languageOptions(command);
   exemplarOption(command);
@@ -51,45 +57,61 @@ export function createReviewCommand(): Command {
     .action(utils.withErrorHandling("Review", executeAction));
 
   utils.optionForConfigSchema(command, CONFIG_REVIEW_SUMMARY_PATH);
+  utils.optionForConfigSchema(command, CONFIG_REVIEW_INSTRUCTIONS);
 
   return command;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Need a better way to handle CLI options
-async function executeAction(content: string, options: any): Promise<void> {
+async function executeAction(
+  content: string,
+  // biome-ignore lint/suspicious/noExplicitAny: Need a better way to handle CLI options
+  options: any,
+  logger: LogWriter,
+): Promise<void> {
+  logo();
+
   console.log("Reviewing content...");
 
-  const config = new ConfigManager();
-  await config.initialize(options);
+  const cwd = utils.getCwd(options);
 
-  const baseDir = utils.getBaseDir(config);
+  const config = new ConfigManager(cwd);
+  await config.initialize(options);
 
   const { language, defaultLanguage } = utils.getLanguages(config);
 
-  const { model, maxTokens } = utils.getCommonAiOptions(config);
+  const { model, maxTokens } = utils.getCommonAiOptions(config, logger);
 
-  const { requestRate, tokenRate } = utils.getRateLimitOptions(config);
+  const { requestRate, tokenRate } = utils.getRateLimitOptions(config, logger);
 
   const write = utils.getWriteOption(config);
 
   const contextStrategy = utils.getContextStrategy(config);
 
-  const exemplars = utils.getExemplars(baseDir, defaultLanguage, config);
+  const exemplars = utils.getExemplars(cwd, defaultLanguage, config);
 
-  const styleGuides = utils.getStyleGuides(baseDir, config, defaultLanguage, [
-    language,
-  ]);
+  const styleGuides = utils.getStyleGuides(
+    cwd,
+    config,
+    defaultLanguage,
+    logger,
+    [language],
+  );
 
   const summaryPath = config.get<string>("ai.review.summaryPath");
 
+  const instructions = config.get<string | undefined>("ai.review.instructions");
+
   console.log("\n");
 
+  const contentDir = utils.getContentDir(config);
+
   const tree = new MarkdownTree(
-    utils.buildPath(content, baseDir),
+    contentDir || content,
     defaultLanguage.code,
+    cwd,
   );
 
-  const nodes = tree.getFlattenedTree();
+  const nodes = tree.getFlattenedTree(contentDir ? content : undefined);
 
   const client = new DefaultBedrockClient(
     model,
@@ -112,10 +134,11 @@ async function executeAction(content: string, options: any): Promise<void> {
         contextStrategy,
         styleGuides,
         exemplars,
+        instructions,
       );
 
       const { response } = await utils.withSpinner(
-        `Processing ${utils.printRelativePath(languageContent.path, baseDir)}`,
+        `Processing ${utils.printRelativePath(languageContent.path, cwd)}`,
         async () => {
           return { response: await client.generate(prompt) };
         },
@@ -138,7 +161,7 @@ async function executeAction(content: string, options: any): Promise<void> {
         );
 
         console.log(
-          `📜 Wrote to file ${utils.printRelativePath(languageContent.path, baseDir)}`,
+          `📜 Wrote to file ${utils.printRelativePath(languageContent.path, cwd)}`,
         );
       } else {
         utils.displayDiff(languageContent.content, response.output);
@@ -155,7 +178,7 @@ async function executeAction(content: string, options: any): Promise<void> {
       const response = await client.generate(summaryPrompt);
 
       fs.writeFileSync(
-        utils.buildPath(summaryPath, baseDir),
+        utils.buildPath(summaryPath, cwd),
         response.output,
         "utf-8",
       );

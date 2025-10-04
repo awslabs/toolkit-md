@@ -15,6 +15,7 @@
  */
 
 import { describe, expect, test } from "vitest";
+import type { Exemplar } from "../../../src/ai/index.js";
 import { buildContextPrompt } from "../../../src/ai/prompts/contextPrompt";
 import type { LanguageContent, TreeNode } from "../../../src/content/index.js";
 import type { Language } from "../../../src/languages/index.js";
@@ -29,6 +30,7 @@ describe("buildContextPrompt", () => {
     content,
     frontmatter: {},
     path: "/mock/path.md",
+    relativePath: "/mock/path.md",
     hash: "mock-hash",
   });
 
@@ -39,6 +41,8 @@ describe("buildContextPrompt", () => {
   ): TreeNode => ({
     name: "mock-node",
     path,
+    relativePath: path,
+    isIndexPage: false,
     isDirectory: false,
     weight: 0,
     languages: new Map([[languageCode, createMockLanguageContent(content)]]),
@@ -55,7 +59,7 @@ describe("buildContextPrompt", () => {
     const result = buildContextPrompt(contextNodes, mockLanguage, [], []);
 
     expect(result).toContain(
-      "The content to review is written in English (United States)",
+      "The content is written in English (United States) provided in Markdown format below",
     );
     expect(result).toContain('<file path="/path/to/file1.md">');
     expect(result).toContain("# File 1\nContent of file 1");
@@ -107,22 +111,27 @@ describe("buildContextPrompt", () => {
         "# Good Example 2\nExemplary content 2",
       ),
     ];
+    const exemplars: Exemplar[] = [
+      {
+        path: "/examples",
+        nodes: exemplarNodes,
+      },
+    ];
 
     const result = buildContextPrompt(
       contextNodes,
       mockLanguage,
       [],
-      exemplarNodes,
+      exemplars,
     );
 
-    expect(result).toContain(
-      "The following files in the <example_files></example_files> tags",
-    );
-    expect(result).toContain('<example path="/examples/good1.md">');
+    expect(result).toContain('<example_file path="/examples/good1.md">');
     expect(result).toContain("# Good Example 1\nExemplary content 1");
-    expect(result).toContain('<example path="/examples/good2.md">');
+    expect(result).toContain('<example_file path="/examples/good2.md">');
     expect(result).toContain("# Good Example 2\nExemplary content 2");
-    expect(result).toContain("This content should be used as a reference");
+    expect(result).toContain(
+      "The following content has been provided as a reference",
+    );
   });
 
   test("should generate complete prompt with all components", () => {
@@ -139,12 +148,18 @@ describe("buildContextPrompt", () => {
         "# Reference\nReference content",
       ),
     ];
+    const exemplars: Exemplar[] = [
+      {
+        path: "/examples",
+        nodes: exemplarNodes,
+      },
+    ];
 
     const result = buildContextPrompt(
       contextNodes,
       mockLanguage,
       styleGuides,
-      exemplarNodes,
+      exemplars,
     );
 
     // Check all sections are present
@@ -153,8 +168,8 @@ describe("buildContextPrompt", () => {
     expect(result).toContain("written in English (United States)");
     expect(result).toContain('<file path="/content/main.md">');
     expect(result).toContain("# Main Content\nMain file content");
-    expect(result).toContain("example_files");
-    expect(result).toContain('<example path="/examples/reference.md">');
+    expect(result).toContain('<example path="/examples">');
+    expect(result).toContain('<example_file path="/examples/reference.md">');
     expect(result).toContain("# Reference\nReference content");
   });
 
@@ -177,21 +192,27 @@ describe("buildContextPrompt", () => {
       createMockTreeNode("/content.md", "Main content", "en-US"),
     ];
     const exemplarNodes = [
-      createMockTreeNode("/example1.md", "English example", "en-US"),
-      createMockTreeNode("/example2.md", "Spanish example", "es-US"),
+      createMockTreeNode("/examples/example1.md", "English example", "en-US"),
+      createMockTreeNode("/examples/example2.md", "Spanish example", "es-US"),
+    ];
+    const exemplars: Exemplar[] = [
+      {
+        path: "/examples",
+        nodes: exemplarNodes,
+      },
     ];
 
     const result = buildContextPrompt(
       contextNodes,
       mockLanguage,
       [],
-      exemplarNodes,
+      exemplars,
     );
 
     expect(result).toContain("English example");
     expect(result).not.toContain("Spanish example");
-    expect(result).toContain('<example path="/example1.md">');
-    expect(result).not.toContain('<example path="/example2.md">');
+    expect(result).toContain('<example_file path="/examples/example1.md">');
+    expect(result).not.toContain('<example_file path="/examples/example2.md">');
   });
 
   test("should handle empty context nodes", () => {
@@ -219,31 +240,6 @@ describe("buildContextPrompt", () => {
     expect(result).not.toContain("<example");
   });
 
-  test("should handle null exemplar nodes", () => {
-    const contextNodes = [createMockTreeNode("/file.md", "Test content")];
-
-    // @ts-expect-error Testing null case
-    const result = buildContextPrompt(contextNodes, mockLanguage, [], null);
-
-    expect(result).not.toContain("example_files");
-    expect(result).not.toContain("<example");
-  });
-
-  test("should handle undefined exemplar nodes", () => {
-    const contextNodes = [createMockTreeNode("/file.md", "Test content")];
-
-    const result = buildContextPrompt(
-      contextNodes,
-      mockLanguage,
-      [],
-      // @ts-expect-error Testing undefined case
-      undefined,
-    );
-
-    expect(result).not.toContain("example_files");
-    expect(result).not.toContain("<example");
-  });
-
   test("should preserve content formatting and special characters", () => {
     const contextNodes = [
       createMockTreeNode(
@@ -255,7 +251,7 @@ describe("buildContextPrompt", () => {
     const result = buildContextPrompt(contextNodes, mockLanguage, [], []);
 
     expect(result).toContain(
-      "# Title\n\n```javascript\nconst x = 'test';\n```\n\n<div>HTML content</div>",
+      "# Title\n\n```javascript\nconst x = &apos;test&apos;;\n```\n\n&lt;div&gt;HTML content&lt;/div&gt;",
     );
   });
 

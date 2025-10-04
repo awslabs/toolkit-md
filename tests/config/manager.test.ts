@@ -26,7 +26,7 @@ describe("ZodConfigManager", () => {
     process.env = { ...originalEnv };
 
     // Create a new ZodConfigManager with the test schema
-    configManager = new ConfigManager(configSchema);
+    configManager = new ConfigManager(process.cwd(), configSchema);
   });
 
   afterEach(() => {

@@ -39,6 +39,7 @@
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { type GlobbyFilterFunction, isGitIgnoredSync } from "globby";
 import * as matter from "gray-matter";
 
 /**
@@ -55,6 +56,8 @@ export interface LanguageContent {
   frontmatter: Record<string, unknown>;
   /** Absolute file system path to the markdown file */
   path: string;
+  /** Relative file system path to the markdown file */
+  relativePath: string;
   /** MD5 hash of the content for change detection */
   hash: string;
 }
@@ -71,8 +74,12 @@ export interface TreeNode {
   name: string;
   /** Absolute file system path to the node */
   path: string;
+  /** Relative file system path to the node */
+  relativePath: string;
   /** Whether this node represents a directory (true) or a file (false) */
   isDirectory: boolean;
+  /** Whether this node represents an index page (true) or a file (false) */
+  isIndexPage: boolean;
   /** Numeric weight for sorting, lower values appear first. Index pages get -1 */
   weight: number;
   /** Map of language codes to their corresponding content (empty for directories) */
@@ -129,6 +136,8 @@ export class MarkdownTree {
   /** Default language code used when no language is specified in filename */
   private defaultLanguage: string;
 
+  private isGitIgnored: GlobbyFilterFunction;
+
   /**
    * Creates a new MarkdownTree instance and builds the tree structure.
    *
@@ -142,12 +151,15 @@ export class MarkdownTree {
    * const frenchTree = new MarkdownTree('/content', 'fr');
    * ```
    */
-  constructor(rootPath: string, defaultLanguage: string = "en") {
+  constructor(rootPath: string, defaultLanguage: string = "en", cwd?: string) {
     this.defaultLanguage = defaultLanguage;
+    this.isGitIgnored = isGitIgnoredSync({ cwd: cwd ?? rootPath });
     this.root = {
       name: path.basename(rootPath),
       path: rootPath,
+      relativePath: path.relative(rootPath, rootPath),
       isDirectory: true,
+      isIndexPage: false,
       weight: 0,
       languages: new Map(),
       children: [],
@@ -155,6 +167,17 @@ export class MarkdownTree {
     };
 
     this.loadTree(rootPath, this.root);
+  }
+
+  /**
+   * Checks if a path should be ignored based on gitignore patterns.
+   *
+   * @param relativePath - Relative path to check
+   * @returns True if the path should be ignored
+   * @internal
+   */
+  private shouldIgnore(relativePath: string): boolean {
+    return this.isGitIgnored(relativePath);
   }
 
   /**
@@ -213,14 +236,22 @@ export class MarkdownTree {
 
     for (const item of items) {
       const itemPath = path.join(dirPath, item);
+      const relativePath = path.relative(this.root.path, itemPath);
+
+      if (this.shouldIgnore(relativePath)) {
+        continue;
+      }
+
       const stats = fs.statSync(itemPath);
 
       if (stats.isDirectory()) {
         const dirNode: TreeNode = {
           name: item,
           path: itemPath,
+          relativePath: path.relative(this.root.path, itemPath),
           isDirectory: true,
           weight: 0,
+          isIndexPage: false,
           languages: new Map(),
           children: [],
           parent: parentNode,
@@ -242,6 +273,12 @@ export class MarkdownTree {
 
     for (const item of items) {
       const itemPath = path.join(dirPath, item);
+      const relativePath = path.relative(this.root.path, itemPath);
+
+      if (this.shouldIgnore(relativePath)) {
+        continue;
+      }
+
       const stats = fs.statSync(itemPath);
 
       if (!stats.isDirectory() && path.extname(item).toLowerCase() === ".md") {
@@ -279,12 +316,15 @@ export class MarkdownTree {
       );
 
       const isIndexPage = baseName === "index" || baseName === "_index";
+      const nodePath = path.join(dirPath, baseName);
 
       const fileNode: TreeNode = {
         name: baseName,
-        path: path.join(dirPath, baseName),
+        path: nodePath,
+        relativePath: path.relative(this.root.path, nodePath),
         isDirectory: false,
         weight: isIndexPage ? -1 : minWeight,
+        isIndexPage,
         languages: new Map(),
         children: [],
         parent: parentNode,
@@ -295,6 +335,7 @@ export class MarkdownTree {
           content: file.content,
           frontmatter: file.parsedData.frontmatter,
           path: file.path,
+          relativePath: path.relative(this.root.path, file.path),
           hash: md5Hash(file.content),
         });
       }
@@ -395,6 +436,7 @@ export class MarkdownTree {
           content,
           frontmatter: parsedData.frontmatter,
           path: languagePath,
+          relativePath: path.relative(this.root.path, languagePath),
           hash: md5Hash(content),
         };
 
@@ -478,6 +520,32 @@ export class MarkdownTree {
 
     for (const child of currentNode.children) {
       const found = this.findNodeByPathRecursive(child, targetPath);
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }
+
+  public findNodeByRelativePath(nodePath: string): TreeNode | null {
+    if (this.root.relativePath === nodePath) {
+      return this.root;
+    }
+
+    return this.findNodeByRelativePathRecursive(this.root, nodePath);
+  }
+
+  private findNodeByRelativePathRecursive(
+    currentNode: TreeNode,
+    targetPath: string,
+  ): TreeNode | null {
+    if (currentNode.relativePath === targetPath) {
+      return currentNode;
+    }
+
+    for (const child of currentNode.children) {
+      const found = this.findNodeByRelativePathRecursive(child, targetPath);
       if (found) {
         return found;
       }
@@ -672,6 +740,53 @@ export class MarkdownTree {
   }
 
   /**
+   * Recursively builds a map of the tree nodes for a given language
+   * @param language - The language code to retrieve content for
+   * @returns String representation of the tree for the given language
+   */
+  public getTreeMap(language: string): string {
+    return this.buildTreeMap(this.root, language, true);
+  }
+
+  private buildTreeMap(
+    node: TreeNode,
+    language: string,
+    isLast: boolean,
+    indent: string = "",
+  ): string {
+    const prefix = `${indent}${isLast ? "└── " : "├── "}`;
+
+    if (!node.isDirectory) {
+      const languageContent = node.languages.get(language);
+
+      if (languageContent) {
+        return `${prefix}${path.basename(languageContent.relativePath)} (title: ${languageContent.frontmatter.title})\n`;
+      }
+
+      return "";
+    }
+
+    let output = "";
+
+    if (node.children.length > 0) {
+      for (let i = 0; i < node.children.length; i++) {
+        const child = node.children[i];
+
+        const isLastChild = i === node.children.length - 1;
+        const childIndent = `${indent}${isLast ? " " : "│"}   `;
+
+        output += this.buildTreeMap(child, language, isLastChild, childIndent);
+      }
+
+      if (output.length > 0) {
+        output = `${prefix}${node.name}\n${output}`;
+      }
+    }
+
+    return output;
+  }
+
+  /**
    * Gets a flattened array of all file nodes in the tree.
    *
    * Traverses the entire tree and returns all file nodes (not directories)
@@ -689,9 +804,19 @@ export class MarkdownTree {
    * });
    * ```
    */
-  public getFlattenedTree(): TreeNode[] {
+  public getFlattenedTree(startAt?: string): TreeNode[] {
     const result: TreeNode[] = [];
-    this.flattenTreeRecursive(this.root, result);
+
+    const startNode = startAt
+      ? this.findNodeByRelativePath(startAt)
+      : this.root;
+
+    if (!startNode) {
+      throw new Error(`Node not found: ${startAt}`);
+    }
+
+    this.flattenTreeRecursive(startNode, result);
+
     return result;
   }
 

@@ -24,7 +24,9 @@ describe("MarkdownTree", () => {
       expect(result).toEqual({
         name: "test-root",
         path: rootPath,
+        relativePath: "",
         isDirectory: true,
+        isIndexPage: false,
         weight: 0,
         languages: new Map(),
         children: [],

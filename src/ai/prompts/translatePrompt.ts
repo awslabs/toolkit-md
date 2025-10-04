@@ -23,7 +23,7 @@ import {
 } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
-import type { Prompt } from "./types.js";
+import type { Exemplar, Prompt } from "./types.js";
 import {
   type ContextStrategy,
   extractFileSection,
@@ -36,7 +36,9 @@ DO NOT make any changes not related to translating the content
 ALWAYS return the entire translated file, do not abbreviate it
 ALWAYS add or update the Markdown frontmatter with a key '${TRANSLATION_SRC_HASH_KEY}' with value '{{sourceHash}}'
 
-Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in <file></file> including the path to the file as an attribute
+Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in "<file></file>" tags including the path to the file as an attribute
+
+ONLY respond with the content between the "<file></file>" tags.
 
 {{#if existingTranslation}}
 The existing translation for this file is provided below enclosed in <existingTranslation></existingTranslation>. Use this as a reference and update it an necessary based on the provided source file.
@@ -56,7 +58,7 @@ export function buildTranslatePrompt(
   targetLanguage: Language,
   contextStrategy: ContextStrategy,
   styleGuides: string[],
-  exemplarNodes: TreeNode[],
+  exemplars: Exemplar[],
 ): Prompt {
   const promptTemplate = Handlebars.compile(template);
 
@@ -66,7 +68,7 @@ export function buildTranslatePrompt(
     contextNodes,
     sourceLanguage,
     styleGuides,
-    exemplarNodes,
+    exemplars,
   );
 
   return {

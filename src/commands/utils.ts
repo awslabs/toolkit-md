@@ -21,15 +21,12 @@ import { type Command, Option } from "commander";
 import { diffWordsWithSpace } from "diff";
 import ora from "ora";
 import type z from "zod";
-import { ZodArray, ZodBoolean } from "zod";
-import type { ContextStrategy, TokenUsage } from "../ai/index.js";
+import { ZodArray, ZodBoolean, ZodDefault } from "zod";
+import type { ContextStrategy, Exemplar, TokenUsage } from "../ai/index.js";
 import type { ConfigManager } from "../config/index.js";
-import {
-  getFlattenedTree,
-  MarkdownTree,
-  type TreeNode,
-} from "../content/index.js";
+import { MarkdownTree } from "../content/index.js";
 import { Language } from "../languages/index.js";
+import { ConsoleLogger, type LogWriter } from "./logger.js";
 
 export function collect(value: unknown, previous: unknown[]) {
   return (previous ?? []).concat([value]);
@@ -63,8 +60,31 @@ export function buildPath<T extends string | undefined>(
   return filepath;
 }
 
-export function getBaseDir(config: ConfigManager) {
-  return path.resolve(config.get<string>("baseDir"));
+export function getContentDir(config: ConfigManager) {
+  const contentDir = config.get<string>("contentDir");
+
+  if (!contentDir) {
+    return undefined;
+  }
+
+  return path.resolve(path.join(config.getCwd(), contentDir));
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: Options not typed
+export function getCwd(options: any) {
+  return options.cwd ? path.resolve(options.cwd) : process.cwd();
+}
+
+export function validatePathWithinCwd(targetPath: string, cwd: string): void {
+  const resolvedTarget = path.resolve(targetPath);
+  const resolvedCwd = path.resolve(cwd);
+  const relative = path.relative(resolvedCwd, resolvedTarget);
+
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(
+      `Access denied: path '${targetPath}' is outside the working directory`,
+    );
+  }
 }
 
 export function printRelativePath(filepath: string, baseDir: string) {
@@ -110,10 +130,10 @@ export function getLanguages(config: ConfigManager): {
   return { language, defaultLanguage };
 }
 
-export function getCommonAiOptions(config: ConfigManager) {
+export function getCommonAiOptions(config: ConfigManager, logger: LogWriter) {
   const model = config.get<string>("ai.model");
 
-  console.log(`⭐ Using model ${model}`);
+  logger.message(`⭐ Using model ${model}`);
 
   const maxTokens = config.get<number>("ai.maxTokens");
 
@@ -127,17 +147,17 @@ export function getWriteOption(config: ConfigManager) {
   return config.get<boolean>("ai.write");
 }
 
-export function getRateLimitOptions(config: ConfigManager) {
+export function getRateLimitOptions(config: ConfigManager, logger: LogWriter) {
   const requestRate = config.get<number>("ai.rate.requests");
 
   if (requestRate > 0) {
-    console.log(`⏳ Rate limiting to ${requestRate} requests per minute`);
+    logger.message(`⏳ Rate limiting to ${requestRate} requests per minute`);
   }
 
   const tokenRate = config.get<number>("ai.rate.tokens");
 
   if (tokenRate > 0) {
-    console.log(`⏳ Rate limiting to ${tokenRate} tokens per minute`);
+    logger.message(`⏳ Rate limiting to ${tokenRate} tokens per minute`);
   }
 
   return {
@@ -150,20 +170,24 @@ export function getExemplars(
   baseDir: string,
   defaultLanguage: Language,
   config: ConfigManager,
-) {
-  const exemplars = config.get<string[]>("ai.exemplars");
+): Exemplar[] {
+  const exemplarPaths = config.get<string[]>("ai.exemplars");
 
-  const exemplarFiles: TreeNode[] = [];
+  const exemplars: Exemplar[] = [];
 
-  for (const exemplar of exemplars) {
-    const moreFiles = getFlattenedTree(
-      buildPath(exemplar as string, baseDir),
+  for (const exemplar of exemplarPaths) {
+    const tree = new MarkdownTree(
+      buildPath(exemplar, baseDir),
       defaultLanguage.code,
     );
-    exemplarFiles.push(...moreFiles);
+
+    exemplars.push({
+      path: exemplar,
+      nodes: tree.getFlattenedTree(),
+    });
   }
 
-  return exemplarFiles;
+  return exemplars;
 }
 
 export function getContextStrategy(config: ConfigManager) {
@@ -178,13 +202,14 @@ export function getStyleGuides(
   baseDir: string,
   config: ConfigManager,
   defaultLanguage: Language,
+  logger: LogWriter,
   languages?: Language[],
 ): string[] {
   const styleGuides = config.get<string[]>("ai.styleGuides");
   const styleGuideFiles: string[] = [];
 
   if (styleGuides.length > 0) {
-    console.log(`📚 Using style guides:`);
+    logger.message(`📚 Using style guides:`);
 
     for (const styleGuidePath of styleGuides) {
       const resolvedPath = buildPath(styleGuidePath, baseDir);
@@ -200,7 +225,7 @@ export function getStyleGuides(
       }
 
       if (stats.isDirectory()) {
-        console.log(`  - ${styleGuidePath}/`);
+        logger.message(`  - ${styleGuidePath}/`);
 
         const tree = new MarkdownTree(resolvedPath, defaultLanguage.code);
 
@@ -208,7 +233,7 @@ export function getStyleGuides(
           const contentFiles = tree.getContent(language.code);
 
           for (const contentFile of contentFiles) {
-            console.log(
+            logger.message(
               `  -> ${printRelativePath(contentFile.path, resolvedPath)}`,
             );
 
@@ -216,7 +241,7 @@ export function getStyleGuides(
           }
         }
       } else {
-        console.log(`  - ${styleGuidePath}`);
+        logger.message(`  - ${styleGuidePath}`);
 
         const content = fs.readFileSync(resolvedPath, "utf8");
 
@@ -236,24 +261,29 @@ export function shouldEnableCache(contextStrategy: ContextStrategy) {
   return true;
 }
 
-type CommandAction<T> = (content: string, options: T) => Promise<void>;
+type CommandAction<T> = (
+  content: string,
+  options: T,
+  logger: LogWriter,
+) => Promise<void>;
 
 export function withErrorHandling<T>(
   actionName: string,
   action: CommandAction<T>,
+  logger: LogWriter = new ConsoleLogger(),
 ): CommandAction<T> {
   return async (content: string, options: T) => {
     try {
-      await action(content, options);
+      await action(content, options, logger);
     } catch (error) {
-      console.error(`\n\n❌ ${actionName} failed:`);
+      logger.error(`\n\n❌ ${actionName} failed:`);
       if (error instanceof Error) {
-        console.error(chalk.red(`Error: ${error.message}`));
+        logger.error(chalk.red(`Error: ${error.message}`));
         if (process.env.NODE_ENV === "development") {
-          console.error(chalk.gray(error.stack));
+          logger.error(chalk.gray(error.stack));
         }
       } else {
-        console.error(chalk.red("An unexpected error occurred"));
+        logger.error(chalk.red("An unexpected error occurred"));
       }
       process.exit(1);
     }
@@ -297,7 +327,7 @@ export function printTokenUsage(usage: TokenUsage) {
 export function optionForConfigSchema(
   command: Command,
   // biome-ignore lint/suspicious/noExplicitAny: Better handling of zod?
-  schema: z.ZodDefault<any>,
+  schema: z.ZodDefault<any> | z.ZodOptional<any>,
 ) {
   const flags = camelToOptionFlag(schema.cli);
 
@@ -316,12 +346,22 @@ export function optionForConfigSchema(
   return command.addOption(option);
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Better handling of zod?
-export function optionDescriptionFromSchema(schema: z.ZodDefault<any>) {
+export function optionDescriptionFromSchema(
+  // biome-ignore lint/suspicious/noExplicitAny: Better way?
+  schema: z.ZodDefault<any> | z.ZodOptional<any>,
+) {
   const env = schema.envPrefix ? `${schema.envPrefix}_*` : schema.env;
-  return `${schema.description} (${env}) (default: ${JSON.stringify(
-    schema._def.defaultValue(),
-  )})`;
+
+  let defaultValue = "";
+
+  if (schema instanceof ZodDefault) {
+    defaultValue = `(default: ${
+      // biome-ignore lint/suspicious/noExplicitAny: Better way?
+      JSON.stringify((schema as ZodDefault<any>)._def.defaultValue())
+    })`;
+  }
+
+  return `${schema.description} (${env}) ${defaultValue}`;
 }
 
 /**

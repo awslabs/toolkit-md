@@ -17,17 +17,14 @@
 import Handlebars from "handlebars";
 import type { TreeNode } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
+import { buildExemplarPrompt } from "./exemplarPrompt.js";
+import { buildStyleGuidePrompt } from "./styleGuidePrompt.js";
+import type { Exemplar } from "./types.js";
+import { buildFileList } from "./utils.js";
 
-const template = `{{#if styleGuides.length}}
-The follow are style guidelines that the content should follow contained between <style></style> tags:
-{{#each styleGuides}}
-<style>
-{{{this}}}
-</style>
-{{/each}}
-{{/if}}
+const template = `{{{styleGuidePrompt}}}
 
-The content to review is written in {{language}} provided in Markdown format below in the <content_files></content_files> tags, with each file enclosed between <file></file> delimiters and includes the path to the file.
+The content is written in {{language}} provided in Markdown format below in the <content_files></content_files> tags, with each file enclosed between <file></file> delimiters and includes the path to the file.
 
 <content_files>
 {{#each contextFiles}}
@@ -37,59 +34,31 @@ The content to review is written in {{language}} provided in Markdown format bel
 {{/each}}
 </content_files>
 
+IMPORTANT: The files may have escaped characters in the contents. You MUST keep these characters escaped unless the content has been changed.
+
 The order of the files in the list should be used when considering changes as they are ordered by how the reader will consume them.
 
-{{#if exemplars.length}}
-The following files in the <example_files></example_files> tags contain examples of existing content split across multiple files, with each file enclosed between <example></example>. This content should be used as a reference to what good content looks like and recommendations should follow its style.
-<example_files>
-{{#each exemplars}}
-<example path="{{this.path}}">
-{{{this.content}}}
-</example>
-{{/each}}
-</example_files>
-{{/if}}
+{{{exemplarPrompt}}}
 `;
-
-interface File {
-  path: string;
-  content: string;
-}
 
 export function buildContextPrompt(
   contextNodes: TreeNode[],
   language: Language,
   styleGuides: string[],
-  exemplarNodes: TreeNode[],
+  exemplars: Exemplar[],
 ) {
   const promptTemplate = Handlebars.compile(template);
 
   const contextFiles = buildFileList(contextNodes, language);
 
-  let exemplars: File[] = [];
+  const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);
 
-  if (exemplarNodes) {
-    exemplars = buildFileList(exemplarNodes, language);
-  }
+  const exemplarPrompt = buildExemplarPrompt(language, exemplars);
 
   return promptTemplate({
     contextFiles,
-    styleGuides,
-    exemplars,
+    styleGuidePrompt,
+    exemplarPrompt,
     language: language.name,
-  });
-}
-
-function buildFileList(nodes: TreeNode[], language: Language): File[] {
-  return nodes
-    .filter((e) => e.languages.has(language.code))
-    .map((e) => {
-      const languageEntry = e.languages.get(language.code);
-
-      return {
-        path: e.path,
-        // biome-ignore lint/style/noNonNullAssertion: Filtered above
-        content: languageEntry!.content,
-      };
-    });
+  }).trim();
 }

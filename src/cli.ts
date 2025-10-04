@@ -18,16 +18,14 @@
 import { Command } from "commander";
 import {
   createAskCommand,
+  createMcpCommand,
   createReviewCommand,
   createTranslateCommand,
 } from "./commands/index.js";
-import { logoText, rainbowText } from "./utils.js";
 
 // x-release-please-start-version
 export const VERSION = "0.1.5";
 // x-release-please-end
-
-console.log(rainbowText(logoText));
 
 process.on("SIGINT", () => {
   console.log("\nGracefully shutting down from SIGINT (Ctrl-C)");
@@ -40,6 +38,7 @@ program
   .version(VERSION)
   .addCommand(createReviewCommand())
   .addCommand(createTranslateCommand())
-  .addCommand(createAskCommand());
+  .addCommand(createAskCommand())
+  .addCommand(createMcpCommand());
 
 await program.parse();

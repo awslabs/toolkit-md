@@ -15,30 +15,28 @@
  */
 
 import Handlebars from "handlebars";
-import type { TreeNode } from "../../content/index.js";
+import type { MarkdownTree } from "../../content/md.js";
 import type { Language } from "../../languages/index.js";
-import { buildContextPrompt } from "./contextPrompt.js";
-import type { Exemplar, Prompt } from "./types.js";
 
-const template = `Your task is the answer the following query related to the specified content:
+const template = `This is a map of Markdown content in this project in {{language.name}}. All files are relative to the following directory:
 
-{{{question}}}`;
+{{{rootDir}}}
 
-export function buildAskPrompt(
-  question: string,
-  nodes: TreeNode[],
-  language: Language,
-  styleGuides: string[],
-  exemplars: Exemplar[],
-): Prompt {
+Content map is as follows:
+
+{{#if contentMap.length}}
+{{{contentMap}}}
+{{else}}
+No content was found
+{{/if}}
+`;
+
+export function buildContentMapPrompt(tree: MarkdownTree, language: Language) {
   const promptTemplate = Handlebars.compile(template);
 
-  const context = buildContextPrompt(nodes, language, styleGuides, exemplars);
-
-  return {
-    context,
-    prompt: promptTemplate({
-      question,
-    }),
-  };
+  return promptTemplate({
+    rootDir: tree.getTree().path,
+    contentMap: tree.getTreeMap(language.code),
+    language,
+  }).trim();
 }

@@ -15,10 +15,14 @@
  */
 
 export * from "./askPrompt.js";
+export * from "./contentMapPrompt.js";
+export * from "./contentSummaryPrompt.js";
 export * from "./contextPrompt.js";
+export * from "./reviewAgentPrompt.js";
 export * from "./reviewPrompt.js";
 export * from "./summaryPrompt.js";
 export * from "./translatePrompt.js";
+export * from "./translationAgentPrompt.js";
 
 export * from "./types.js";
 export * from "./utils.js";
