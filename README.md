@@ -392,10 +392,12 @@ For safety purposes the MCP server will refuse to load files from outside the cu
 
 The following MCP tools are provided:
 
-| Tools                    | Description                                                                                                                                                                                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `content_map`            | Response provides an ordered file/directory textual structured map of the Markdown content for the specified project. This can be useful for a model to efficiently navigate around large Markdown projects.       |
-| `content_best_practices` | Response contains style guide and exemplar content as configured for the specified project. It the `targetLanguage` is provided it will also load style guides for that language and provide them in the response. |
+| Tools                          | Description                                                                                                                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `content_summary_information`  | Response provides high level information for the model to locate Markdown content in a given project for orientation.                                                                                              |
+| `content_best_practices`       | Response contains style guide and exemplar content as configured for the specified project. It the `targetLanguage` is provided it will also load style guides for that language and provide them in the response. |
+| `content_review_guidance`      | Response contains guidance for the model to systematically review Markdown content for a given project for general issues and best practices.                                                                      |
+| `content_translation_guidance` | Response contains guidance for the model to translate Markdown for a given project to another language. It helps the model locate both source content as well as existing translated content to use for context.   |
 
 ## Development
 
