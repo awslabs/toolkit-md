@@ -15,6 +15,7 @@ CLI tools for maintaining Markdown content like documentation and tutorials.
 - **📝 Style Guide Enforcement** - Maintain consistency with custom style guides
 - **⚡ Rate Limiting** - Built-in rate limiting for API calls
 - **🎯 Context-Aware Processing** - Smart content processing with configurable context strategies
+- **🔌 Model Context Protocol Server** - Integrate with tools like Cursor, Cline and Q Developer with the built-in MCP server
 
 ## Installation
 
@@ -38,6 +39,12 @@ Write the changes directly back to the source files:
 
 ```bash
 toolkit-md review --write ./docs
+```
+
+Provide some additional instructions:
+
+```bash
+toolkit-md review --write ./docs --instructions 'Add more detailed explanations to the introduction page'
 ```
 
 ### Translate Content
@@ -66,22 +73,23 @@ Toolkit for Markdown supports configuration through:
 
 **Configuration Options:**
 
-| Config Path             | CLI Flag             | Environment Variable          | Description                                                                                  | Default                                       |
-| ----------------------- | -------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `baseDir`               | `--base-dir`         | `TKMD_BASE_DIR`               | Base directory for relative paths                                                            | `"."`                                         |
-| `language`              | `--language`         | `TKMD_LANGUAGE`               | Source language code                                                                         | `"en"`                                        |
-| `defaultLanguage`       | `--default-language` | `TKMD_DEFAULT_LANGUAGE`       | Language for files without explicit markers                                                  | `"en"`                                        |
-| `ai.model`              | `--model`            | `TKMD_AI_MODEL`               | Amazon Bedrock model ID                                                                      | `"anthropic.claude-3-5-sonnet-20241022-v2:0"` |
-| `ai.maxTokens`          | `--max-tokens`       | `TKMD_AI_MAX_TOKENS`          | Maximum output tokens                                                                        | `4096`                                        |
-| `ai.write`              | `--write`            | `TKMD_AI_WRITE`               | Write changes directly to files                                                              | `false`                                       |
-| `ai.rate.requests`      | `--request-rate`     | `TKMD_AI_REQUEST_RATE_LIMIT`  | Max requests per minute (0 = unlimited)                                                      | `0`                                           |
-| `ai.rate.tokens`        | `--token-rate`       | `TKMD_AI_TOKEN_RATE_LIMIT`    | Max tokens per minute (0 = unlimited)                                                        | `0`                                           |
-| `ai.contextStrategy`    | `--context-strategy` | `TKMD_AI_CONTEXT_STRATEGY`    | Context inclusion: "siblings", "nothing", "everything"                                       | `"nothing"`                                   |
-| `ai.exemplars`          | `--exemplar`         | `TKMD_AI_EXEMPLAR_*`          | Path to directory of content to use as an example to follow, can be specified multiple times | `[]`                                          |
-| `ai.styleGuides`        | `--style-guide`      | `TKMD_AI_STYLE_GUIDE_*`       | Path to style guide file, can be specified multiple times                                    | `[]`                                          |
-| `ai.review.summaryFile` | `--summary-file`     | `TKMD_AI_REVIEW_SUMMARY_PATH` | Write a summary of the review changes to the provided file path in Markdown format           | `""`                                          |
-| `ai.translation.force`  | `--force`            | `TKMD_AI_FORCE_TRANSLATION`   | Force translation even if source unchanged                                                   | `false`                                       |
-| `ai.translation.check`  | `--check`            | `TKMD_AI_CHECK_TRANSLATION`   | Only check if translation needed                                                             | `false`                                       |
+| Config Path              | CLI Flag             | Environment Variable          | Description                                                                                  | Default                                       |
+| ------------------------ | -------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `contentDir`             | `--content-dir`      | `TKMD_CONTENT_DIR`            | Directory relative to the cwd where content is hosted                                        | `undefined`                                   |
+| `language`               | `--language`         | `TKMD_LANGUAGE`               | Source language code                                                                         | `"en"`                                        |
+| `defaultLanguage`        | `--default-language` | `TKMD_DEFAULT_LANGUAGE`       | Language for files without explicit markers                                                  | `"en"`                                        |
+| `ai.model`               | `--model`            | `TKMD_AI_MODEL`               | Amazon Bedrock model ID                                                                      | `"anthropic.claude-3-5-sonnet-20241022-v2:0"` |
+| `ai.maxTokens`           | `--max-tokens`       | `TKMD_AI_MAX_TOKENS`          | Maximum output tokens                                                                        | `4096`                                        |
+| `ai.write`               | `--write`            | `TKMD_AI_WRITE`               | Write changes directly to files                                                              | `false`                                       |
+| `ai.rate.requests`       | `--request-rate`     | `TKMD_AI_REQUEST_RATE_LIMIT`  | Max requests per minute (0 = unlimited)                                                      | `0`                                           |
+| `ai.rate.tokens`         | `--token-rate`       | `TKMD_AI_TOKEN_RATE_LIMIT`    | Max tokens per minute (0 = unlimited)                                                        | `0`                                           |
+| `ai.contextStrategy`     | `--context-strategy` | `TKMD_AI_CONTEXT_STRATEGY`    | Context inclusion: "siblings", "nothing", "everything"                                       | `"nothing"`                                   |
+| `ai.exemplars`           | `--exemplar`         | `TKMD_AI_EXEMPLAR_*`          | Path to directory of content to use as an example to follow, can be specified multiple times | `[]`                                          |
+| `ai.styleGuides`         | `--style-guide`      | `TKMD_AI_STYLE_GUIDE_*`       | Path to style guide file, can be specified multiple times                                    | `[]`                                          |
+| `ai.review.instructions` | `--instructions`     | `TKMD_AI_REVIEW_INSTRUCTIONS` | Additional instructions for the model                                                        | `undefined`                                   |
+| `ai.review.summaryFile`  | `--summary-file`     | `TKMD_AI_REVIEW_SUMMARY_PATH` | Write a summary of the review changes to the provided file path in Markdown format           | `""`                                          |
+| `ai.translation.force`   | `--force`            | `TKMD_AI_FORCE_TRANSLATION`   | Force translation even if source unchanged                                                   | `false`                                       |
+| `ai.translation.check`   | `--check`            | `TKMD_AI_CHECK_TRANSLATION`   | Only check if translation needed                                                             | `false`                                       |
 
 **Note:** For array values (exemplars, styleGuides), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
 
@@ -112,6 +120,52 @@ Create a `.toolkit-mdrc` file in JSON format:
   }
 }
 ```
+
+### Changing the working directory
+
+Adding a `.toolkit-mdrc` file to a project is a useful way to set default configuration values for that project. The most effective way to make sure that the correct configuration file is picked up is to run `toolkit-md` from the directory of the project itself.
+
+An alternative approach is to use the `--cwd` flag to change what the tool considers the current directory:
+
+```bash
+toolkit-md review --cwd ~/projects/my-project ./docs
+```
+
+This will:
+
+1. Try to load a configuration file from `~/projects/my-project/.toolkit-mdrc`
+2. Review the content in `~/projects/my-project/docs`
+
+### Configuring a content directory
+
+Its not unusual for Markdown content to be stored in a sub-directory of an overall project.
+
+For example:
+
+```
+docs/.                      ← **Markdown documentation**
+├── guide/
+│   ├── getting-started.md
+│   ├── installation.md
+│   └── configuration.md
+└── api/
+    ├── authentication.md
+    └── endpoints.md
+src/                        ← **Other source code**
+```
+
+The `--content-dir` parameter can be used to information `toolkit-md` that a sub-directory is what it should consider the "root" for Markdown content.
+
+```bash
+toolkit-md review --content-dir ./docs ./guide
+```
+
+This will review the content in `./docs/guide`.
+
+Taking this approach has several benefits:
+
+1. It shortens the parameter used to target subsets of content for review
+2. It allows `toolkit-md` to generate more succinct, targeted directory and file structure listings that can be provided to LLMs. Instead of mapping the entire project repository, it can focus on the specific directory that contains Markdown. This saves tokens and reduces the context sent to the model.
 
 ### Style Guides
 
@@ -237,13 +291,14 @@ toolkit-md review ./docs --write --style-guide ./guides/style.md --context-strat
 - `--default-language`
 - `--model`
 - `--max-tokens`
-- `--base-dir`
+- `--content-dir`
 - `--request-rate`
 - `--token-rate`
 - `--context-strategy`
 - `--exemplar`
 - `--style-guide`
 - `--summary-file`
+- `--instructions`
 
 ### `translate`
 
@@ -263,7 +318,7 @@ toolkit-md translate ./docs --to fr --write --exemplar ./examples/french-docs
 - `--default-language`
 - `--model`
 - `--max-tokens`
-- `--base-dir`
+- `--content-dir`
 - `--request-rate`
 - `--token-rate`
 - `--context-strategy`
@@ -289,11 +344,58 @@ toolkit-md ask ./docs --question "What are the installation requirements and set
 - `--default-language`
 - `--model`
 - `--max-tokens`
-- `--base-dir`
+- `--content-dir`
 - `--request-rate`
 - `--token-rate`
 - `--exemplar`
 - `--style-guide`
+
+## Model Context Protocol server
+
+The built-in MCP server allows tools like Cursor, Cline and Q Developer to integrate and leverage the same Markdown file discovery, parsing and style guides as running the CLI commands. This is useful when working in an IDE to write new content or review existing content using agentic AI tools.
+
+Some example prompts:
+
+"Review the markdown content in this project for issues and best practices"
+
+"Translate the markdown content section on Amazon DynamoDB to French"
+
+Here is an example of configuring the MCP server in Q Developer:
+
+```json
+{
+  "mcpServers": {
+    "toolkit-md": {
+      "command": "toolkit-md",
+      "timeout": 10000,
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Alternatively you can use `npx`:
+
+```json
+{
+  "mcpServers": {
+    "toolkit-md": {
+      "command": "npx",
+      "timeout": 10000,
+      "args": ["@aws/toolkit-md", "mcp"]
+    }
+  }
+}
+```
+
+For safety purposes the MCP server will refuse to load files from outside the current working directory that the MCP is running in. You can override the current working directory using the `--cwd` flag to broaden the files accessible.
+
+The following MCP tools are provided:
+
+| Tools                    | Description                                                                                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `content_map`            | Response provides an ordered file/directory textual structured map of the Markdown content for the specified project. This can be useful for a model to efficiently navigate around large Markdown projects.       |
+| `content_best_practices` | Response contains style guide and exemplar content as configured for the specified project. It the `targetLanguage` is provided it will also load style guides for that language and provide them in the response. |
 
 ## Development
 

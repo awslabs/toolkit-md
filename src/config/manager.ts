@@ -32,7 +32,14 @@ export class ConfigManager {
   private configFilePath: string | null = null;
   private cliOptions: any = {};
 
-  constructor(private schema = configSchema) {}
+  constructor(
+    private cwd: string,
+    private schema = configSchema,
+  ) {}
+
+  public getCwd() {
+    return this.cwd;
+  }
 
   /**
    * Initialize the configuration manager by loading config files
@@ -193,7 +200,7 @@ export class ConfigManager {
       // 2. Try current directory
       if (!configFilePath) {
         for (const fileName of CONFIG_FILE_NAMES) {
-          const filePath = path.join(process.cwd(), fileName);
+          const filePath = path.join(this.cwd, fileName);
           if (fs.existsSync(filePath)) {
             configFilePath = filePath;
             break;
@@ -243,6 +250,3 @@ export class ConfigManager {
     return current === undefined ? (defaultValue as T) : (current as T);
   }
 }
-
-// Export a singleton instance
-export const zodNativeConfigManager = new ConfigManager();

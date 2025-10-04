@@ -18,8 +18,10 @@ import { Command } from "commander";
 import { buildAskPrompt, DefaultBedrockClient } from "../ai/index.js";
 import { ConfigManager } from "../config/index.js";
 import { MarkdownTree } from "../content/index.js";
+import type { LogWriter } from "./logger.js";
+import { logo } from "./logo.js";
 import {
-  commonOptions,
+  commonAiOptions,
   exemplarOption,
   languageOptions,
   rateLimitOptions,
@@ -30,7 +32,7 @@ import * as utils from "./utils.js";
 export function createAskCommand(): Command {
   const command = new Command("ask");
 
-  commonOptions(command);
+  commonAiOptions(command);
   languageOptions(command);
   exemplarOption(command);
   styleGuideOption(command);
@@ -45,8 +47,16 @@ export function createAskCommand(): Command {
   return command;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Need a better way to handle CLI options
-async function executeAction(content: string, options: any): Promise<void> {
+async function executeAction(
+  content: string,
+  // biome-ignore lint/suspicious/noExplicitAny: Need a better way to handle CLI options
+  options: any,
+  logger: LogWriter,
+): Promise<void> {
+  logo();
+
+  const cwd = utils.getCwd(options);
+
   console.log("Checking content...");
 
   if (!options.question) {
@@ -54,29 +64,36 @@ async function executeAction(content: string, options: any): Promise<void> {
     process.exit(1);
   }
 
-  const config = new ConfigManager();
+  const config = new ConfigManager(cwd);
   await config.initialize(options);
-
-  const baseDir = utils.getBaseDir(config);
 
   const { language, defaultLanguage } = utils.getLanguages(config);
 
-  const { model, maxTokens } = utils.getCommonAiOptions(config);
+  const { model, maxTokens } = utils.getCommonAiOptions(config, logger);
 
-  const { requestRate, tokenRate } = utils.getRateLimitOptions(config);
+  const { requestRate, tokenRate } = utils.getRateLimitOptions(config, logger);
 
-  const exemplars = utils.getExemplars(baseDir, defaultLanguage, config);
+  const exemplars = utils.getExemplars(cwd, defaultLanguage, config);
 
-  const styleGuides = utils.getStyleGuides(baseDir, config, defaultLanguage, [
-    language,
-  ]);
+  const styleGuides = utils.getStyleGuides(
+    cwd,
+    config,
+    defaultLanguage,
+    logger,
+    [language],
+  );
 
   console.log("\n");
 
+  const contentDir = utils.getContentDir(config);
+
   const tree = new MarkdownTree(
-    utils.buildPath(content, baseDir),
+    contentDir || content,
     defaultLanguage.code,
+    cwd,
   );
+
+  const nodes = tree.getFlattenedTree(contentDir ? content : undefined);
 
   const client = new DefaultBedrockClient(
     model,
@@ -88,7 +105,7 @@ async function executeAction(content: string, options: any): Promise<void> {
 
   const prompt = buildAskPrompt(
     options.question,
-    tree,
+    nodes,
     language,
     styleGuides,
     exemplars,

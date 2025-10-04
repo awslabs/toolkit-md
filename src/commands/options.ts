@@ -16,7 +16,7 @@
 
 import type { Command } from "commander";
 import {
-  CONFIG_BASE_DIR,
+  CONFIG_CONTENT_DIR,
   CONFIG_CONTEXT_STRATEGY,
   CONFIG_DEFAULT_LANGUAGE,
   CONFIG_EXEMPLARS,
@@ -34,9 +34,18 @@ export const DEFAULT_MODEL = "anthropic.claude-3-5-sonnet-20241022-v2:0";
 export const DEFAULT_MAX_TOKENS = "4096";
 
 export function commonOptions(command: Command) {
-  utils.optionForConfigSchema(command, CONFIG_BASE_DIR);
+  command.option(
+    "--cwd <value>",
+    "Specify the current working directory for all commands",
+  );
+}
+
+export function commonAiOptions(command: Command) {
+  utils.optionForConfigSchema(command, CONFIG_CONTENT_DIR);
   utils.optionForConfigSchema(command, CONFIG_MODEL);
   utils.optionForConfigSchema(command, CONFIG_MAX_TOKENS);
+
+  commonOptions(command);
 }
 
 export function fileWriteOptions(command: Command) {

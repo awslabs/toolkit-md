@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { TreeNode } from "../../content/index.js";
+
 /**
  * Represents a prompt configuration for AI model interactions.
  * This interface defines the structure of prompts sent to language models.
@@ -52,4 +54,10 @@ export interface Prompt {
    * @returns The transformed response string
    */
   transform?: (input: string) => string;
+}
+
+export interface Exemplar {
+  path: string;
+
+  nodes: TreeNode[];
 }

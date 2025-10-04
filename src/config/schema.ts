@@ -44,13 +44,13 @@ function withConfig<T extends z.ZodType>(
   return schema;
 }
 
-export const CONFIG_BASE_DIR = withConfig(
+export const CONFIG_CONTENT_DIR = withConfig(
   z
     .string()
-    .describe("Directory to use as a base for other paths")
-    .default("."),
-  "baseDir",
-  "TKMD_BASE_DIR",
+    .describe("Directory relative to the cwd where content is hosted")
+    .optional(),
+  "contentDir",
+  "TKMD_CONTENT_DIR",
 );
 
 export const CONFIG_LANGUAGE = withConfig(
@@ -135,6 +135,12 @@ export const CONFIG_REVIEW_SUMMARY_PATH = withConfig(
   "TKMD_AI_REVIEW_SUMMARY_PATH",
 );
 
+export const CONFIG_REVIEW_INSTRUCTIONS = withConfig(
+  z.string().describe("Additional instructions for the model").optional(),
+  "instructions",
+  "TKMD_REVIEW_INSTRUCTIONS",
+);
+
 export const CONFIG_FORCE_TRANSLATION = withConfig(
   z
     .boolean()
@@ -181,7 +187,7 @@ export const CONFIG_STYLE_GUIDES = withConfig(
 
 // Define the configuration schema using Zod's native description functionality
 export const configSchema = z.object({
-  baseDir: CONFIG_BASE_DIR,
+  contentDir: CONFIG_CONTENT_DIR,
   language: CONFIG_LANGUAGE,
   defaultLanguage: CONFIG_DEFAULT_LANGUAGE,
   ai: z.object({
@@ -197,6 +203,7 @@ export const configSchema = z.object({
     styleGuides: CONFIG_STYLE_GUIDES,
     review: z.object({
       summaryPath: CONFIG_REVIEW_SUMMARY_PATH,
+      instructions: CONFIG_REVIEW_INSTRUCTIONS,
     }),
     translation: z.object({
       force: CONFIG_FORCE_TRANSLATION,

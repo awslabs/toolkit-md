@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
+import type { Exemplar } from "../../../src/ai/index.js";
 import { buildAskPrompt } from "../../../src/ai/prompts/askPrompt";
-import type {
-  LanguageContent,
-  MarkdownTree,
-  TreeNode,
-} from "../../../src/content/index.js";
+import type { LanguageContent, TreeNode } from "../../../src/content/index.js";
 import type { Language } from "../../../src/languages/index.js";
 
 describe("buildAskPrompt", () => {
@@ -33,6 +30,7 @@ describe("buildAskPrompt", () => {
     content,
     frontmatter: {},
     path: "/mock/path.md",
+    relativePath: "/mock/path.md",
     hash: "mock-hash",
   });
 
@@ -43,17 +41,14 @@ describe("buildAskPrompt", () => {
   ): TreeNode => ({
     name: "mock-node",
     path,
+    relativePath: path,
+    isIndexPage: false,
     isDirectory: false,
     weight: 0,
     languages: new Map([[languageCode, createMockLanguageContent(content)]]),
     children: [],
     parent: null,
   });
-
-  const createMockMarkdownTree = (nodes: TreeNode[]): MarkdownTree =>
-    ({
-      getFlattenedTree: vi.fn().mockReturnValue(nodes),
-    }) as unknown as MarkdownTree;
 
   test("should generate ask prompt with basic question", () => {
     const question = "What is the main topic of this documentation?";
@@ -63,9 +58,8 @@ describe("buildAskPrompt", () => {
         "# Introduction\nThis is an introduction to our product.",
       ),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.prompt).toContain(
       "Your task is the answer the following query related to the specified content:",
@@ -74,13 +68,12 @@ describe("buildAskPrompt", () => {
       "What is the main topic of this documentation?",
     );
     expect(result.context).toContain(
-      "The content to review is written in English (United States)",
+      "The content is written in English (United States) provided in Markdown format below",
     );
     expect(result.context).toContain('<file path="/content/intro.md">');
     expect(result.context).toContain(
       "# Introduction\nThis is an introduction to our product.",
     );
-    expect(tree.getFlattenedTree).toHaveBeenCalled();
   });
 
   test("should include all content from flattened tree", () => {
@@ -90,9 +83,8 @@ describe("buildAskPrompt", () => {
       createMockTreeNode("/section2.md", "# Section 2\nSecond section content"),
       createMockTreeNode("/section3.md", "# Section 3\nThird section content"),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.context).toContain("# Section 1\nFirst section content");
     expect(result.context).toContain("# Section 2\nSecond section content");
@@ -107,7 +99,6 @@ describe("buildAskPrompt", () => {
     const nodes = [
       createMockTreeNode("/content.md", "# Content\nSample content here."),
     ];
-    const tree = createMockMarkdownTree(nodes);
     const styleGuides = [
       "Use active voice whenever possible",
       "Keep sentences concise and clear",
@@ -116,7 +107,7 @@ describe("buildAskPrompt", () => {
 
     const result = buildAskPrompt(
       question,
-      tree,
+      nodes,
       mockLanguage,
       styleGuides,
       [],
@@ -135,7 +126,6 @@ describe("buildAskPrompt", () => {
     const nodes = [
       createMockTreeNode("/content.md", "# Content\nSample content here."),
     ];
-    const tree = createMockMarkdownTree(nodes);
     const exemplarNodes = [
       createMockTreeNode(
         "/examples/good-example.md",
@@ -146,30 +136,30 @@ describe("buildAskPrompt", () => {
         "# Best Practice\nFollow these patterns for quality content.",
       ),
     ];
+    const exemplars: Exemplar[] = [
+      {
+        path: "/examples",
+        nodes: exemplarNodes,
+      },
+    ];
 
-    const result = buildAskPrompt(
-      question,
-      tree,
-      mockLanguage,
-      [],
-      exemplarNodes,
-    );
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], exemplars);
 
-    expect(result.context).toContain("example_files");
+    expect(result.context).toContain('<example path="/examples">');
     expect(result.context).toContain(
-      '<example path="/examples/good-example.md">',
+      '<example_file path="/examples/good-example.md">',
     );
     expect(result.context).toContain(
       "# Good Example\nThis is how content should be written.",
     );
     expect(result.context).toContain(
-      '<example path="/examples/best-practice.md">',
+      '<example_file path="/examples/best-practice.md">',
     );
     expect(result.context).toContain(
       "# Best Practice\nFollow these patterns for quality content.",
     );
     expect(result.context).toContain(
-      "This content should be used as a reference",
+      "The following content has been provided as a reference",
     );
   });
 
@@ -182,15 +172,14 @@ describe("buildAskPrompt", () => {
         "# API Documentation\n## Section 2.1\nKey features include authentication & rate limiting.",
       ),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.prompt).toContain(
       'What are the "key features" mentioned in section 2.1? How do they relate to the API endpoints?',
     );
     expect(result.context).toContain(
-      "Key features include authentication & rate limiting.",
+      "Key features include authentication &amp; rate limiting.",
     );
   });
 
@@ -199,9 +188,8 @@ describe("buildAskPrompt", () => {
     const nodes = [
       createMockTreeNode("/content.md", "# Content\nSample content here."),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.prompt).toContain(
       "Your task is the answer the following query related to the specified content:",
@@ -222,9 +210,8 @@ Please provide detailed feedback for each.`;
         "# Code Review\nCode examples here.",
       ),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.prompt).toContain("Can you analyze the following aspects:");
     expect(result.prompt).toContain("1. Code quality");
@@ -248,9 +235,8 @@ Please provide detailed feedback for each.`;
         "fr-FR",
       ),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, frenchLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, frenchLanguage, [], []);
 
     expect(result.prompt).toContain("Quelle est la structure de ce document?");
     expect(result.context).toContain("written in Français");
@@ -259,13 +245,11 @@ Please provide detailed feedback for each.`;
 
   test("should handle empty tree", () => {
     const question = "What content is available?";
-    const tree = createMockMarkdownTree([]);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, [], mockLanguage, [], []);
 
     expect(result.prompt).toContain("What content is available?");
     expect(result.context).toContain("<content_files></content_files>");
-    expect(tree.getFlattenedTree).toHaveBeenCalled();
   });
 
   test("should handle empty style guides and exemplars", () => {
@@ -273,9 +257,8 @@ Please provide detailed feedback for each.`;
     const nodes = [
       createMockTreeNode("/content.md", "# Content\nSample content here."),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.context).not.toContain("style guidelines");
     expect(result.context).not.toContain("example_files");
@@ -303,14 +286,13 @@ And some HTML:
 \`\`\``;
 
     const nodes = [createMockTreeNode("/examples.md", complexContent)];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.context).toContain("```javascript");
     expect(result.context).toContain("function hello(name)");
     expect(result.context).toContain("```html");
-    expect(result.context).toContain('<div class="example">');
+    expect(result.context).toContain("&lt;div class=&quot;example&quot;&gt;");
   });
 
   test("should handle questions with handlebars-like syntax", () => {
@@ -321,9 +303,8 @@ And some HTML:
         "# Templates\nUse {{variable}} for dynamic content.",
       ),
     ];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result.prompt).toContain(
       "What does {{variable}} mean in this context?",
@@ -336,9 +317,8 @@ And some HTML:
   test("should return prompt object with correct structure", () => {
     const question = "Test question";
     const nodes = [createMockTreeNode("/test.md", "Test content")];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(question, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(question, nodes, mockLanguage, [], []);
 
     expect(result).toHaveProperty("prompt");
     expect(result).toHaveProperty("context");
@@ -353,9 +333,8 @@ And some HTML:
   test("should handle very long questions", () => {
     const longQuestion = `${"A".repeat(1000)} - what does this mean?` as const;
     const nodes = [createMockTreeNode("/content.md", "Short content")];
-    const tree = createMockMarkdownTree(nodes);
 
-    const result = buildAskPrompt(longQuestion, tree, mockLanguage, [], []);
+    const result = buildAskPrompt(longQuestion, nodes, mockLanguage, [], []);
 
     expect(result.prompt).toContain(longQuestion);
     expect(result.prompt.length).toBeGreaterThan(1000);

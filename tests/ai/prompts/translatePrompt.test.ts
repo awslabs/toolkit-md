@@ -15,6 +15,7 @@
  */
 
 import { describe, expect, test, vi } from "vitest";
+import type { Exemplar } from "../../../src/ai/index.js";
 import { buildTranslatePrompt } from "../../../src/ai/prompts/translatePrompt";
 import type {
   LanguageContent,
@@ -42,6 +43,7 @@ describe("buildTranslatePrompt", () => {
     content,
     frontmatter: {},
     path: "/mock/path.md",
+    relativePath: "/mock/path.md",
     hash,
   });
 
@@ -52,6 +54,8 @@ describe("buildTranslatePrompt", () => {
   ): TreeNode => ({
     name: "mock-node",
     path,
+    relativePath: path,
+    isIndexPage: false,
     isDirectory: false,
     weight: 0,
     languages: new Map([[languageCode, createMockLanguageContent(content)]]),
@@ -166,8 +170,9 @@ describe("buildTranslatePrompt", () => {
       [],
     );
 
-    expect(result.context).toContain("The content to review is written in");
-    expect(result.context).toContain("English (United States)");
+    expect(result.context).toContain(
+      "The content is written in English (United States) provided in Markdown format below",
+    );
     expect(tree.getFlattenedTree).toHaveBeenCalled();
   });
 
@@ -256,6 +261,12 @@ describe("buildTranslatePrompt", () => {
         "# Good Example\nThis is a good example.",
       ),
     ];
+    const exemplars: Exemplar[] = [
+      {
+        path: "/examples",
+        nodes: exemplarNodes,
+      },
+    ];
 
     const result = buildTranslatePrompt(
       tree,
@@ -266,10 +277,10 @@ describe("buildTranslatePrompt", () => {
       mockTargetLanguage,
       "nothing",
       [],
-      exemplarNodes,
+      exemplars,
     );
 
-    expect(result.context).toContain("example_files");
+    expect(result.context).toContain('<example path="/examples">');
     expect(result.context).toContain("Good Example");
     expect(result.context).toContain("This is a good example.");
   });

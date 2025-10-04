@@ -24,8 +24,10 @@ import {
 } from "../config/index.js";
 import { MarkdownTree, TRANSLATION_SRC_HASH_KEY } from "../content/index.js";
 import { Language } from "../languages/index.js";
+import type { LogWriter } from "./logger.js";
+import { logo } from "./logo.js";
 import {
-  commonOptions,
+  commonAiOptions,
   contextOptions,
   exemplarOption,
   fileWriteOptions,
@@ -37,7 +39,7 @@ import * as utils from "./utils.js";
 export function createTranslateCommand(): Command {
   const command = new Command("translate");
 
-  commonOptions(command);
+  commonAiOptions(command);
   fileWriteOptions(command);
   languageOptions(command);
   exemplarOption(command);
@@ -56,12 +58,18 @@ export function createTranslateCommand(): Command {
   return command;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Need a better way to handle CLI options
-async function executeAction(content: string, options: any): Promise<void> {
-  const config = new ConfigManager();
-  await config.initialize(options);
+async function executeAction(
+  content: string,
+  // biome-ignore lint/suspicious/noExplicitAny: Need a better way to handle CLI options
+  options: any,
+  logger: LogWriter,
+): Promise<void> {
+  logo();
 
-  const baseDir = utils.getBaseDir(config);
+  const cwd = utils.getCwd(options);
+
+  const config = new ConfigManager(cwd);
+  await config.initialize(options);
 
   const { language, defaultLanguage } = utils.getLanguages(config);
   const targetLanguage = Language.getLanguage(options.to);
@@ -74,20 +82,23 @@ async function executeAction(content: string, options: any): Promise<void> {
     `Translating content from ${language.name} to ${targetLanguage.name}...`,
   );
 
-  const { model, maxTokens } = utils.getCommonAiOptions(config);
+  const { model, maxTokens } = utils.getCommonAiOptions(config, logger);
 
-  const { requestRate, tokenRate } = utils.getRateLimitOptions(config);
+  const { requestRate, tokenRate } = utils.getRateLimitOptions(config, logger);
 
   const write = utils.getWriteOption(config);
 
   const contextStrategy = utils.getContextStrategy(config);
 
-  const exemplars = utils.getExemplars(baseDir, defaultLanguage, config);
+  const exemplars = utils.getExemplars(cwd, defaultLanguage, config);
 
-  const styleGuides = utils.getStyleGuides(baseDir, config, defaultLanguage, [
-    language,
-    targetLanguage,
-  ]);
+  const styleGuides = utils.getStyleGuides(
+    cwd,
+    config,
+    defaultLanguage,
+    logger,
+    [language, targetLanguage],
+  );
 
   const enableCache = utils.shouldEnableCache(contextStrategy);
 
@@ -98,12 +109,15 @@ async function executeAction(content: string, options: any): Promise<void> {
 
   console.log("\n");
 
+  const contentDir = utils.getContentDir(config);
+
   const tree = new MarkdownTree(
-    utils.buildPath(content, baseDir),
+    contentDir || content,
     defaultLanguage.code,
+    cwd,
   );
 
-  const nodes = tree.getFlattenedTree();
+  const nodes = tree.getFlattenedTree(contentDir ? content : undefined);
 
   const client = new DefaultBedrockClient(
     model,
@@ -129,7 +143,7 @@ async function executeAction(content: string, options: any): Promise<void> {
             console.log(
               `ℹ️  ${chalk.yellow("Skipping")} ${utils.printRelativePath(
                 node.path,
-                baseDir,
+                cwd,
               )} - no changes detected`,
             );
             continue;
@@ -143,7 +157,7 @@ async function executeAction(content: string, options: any): Promise<void> {
         console.log(
           `⚠️  Translation required for ${utils.printRelativePath(
             node.path,
-            baseDir,
+            cwd,
           )}`,
         );
         continue;
@@ -162,7 +176,7 @@ async function executeAction(content: string, options: any): Promise<void> {
       );
 
       const { response } = await utils.withSpinner(
-        `Processing ${utils.printRelativePath(languageContent.path, baseDir)}`,
+        `Processing ${utils.printRelativePath(languageContent.path, cwd)}`,
         async () => {
           return { response: await client.generate(prompt, enableCache) };
         },
@@ -176,7 +190,7 @@ async function executeAction(content: string, options: any): Promise<void> {
         );
 
         console.log(
-          `📜 Wrote to file ${utils.printRelativePath(writtenContent.path, baseDir)}`,
+          `📜 Wrote to file ${utils.printRelativePath(writtenContent.path, cwd)}`,
         );
       } else {
         console.log(response.output);
@@ -187,7 +201,7 @@ async function executeAction(content: string, options: any): Promise<void> {
       console.log(
         `⚠️  No content found for language ${language.code} in ${utils.printRelativePath(
           node.path,
-          baseDir,
+          cwd,
         )}`,
       );
     }

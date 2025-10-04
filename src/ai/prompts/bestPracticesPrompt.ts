@@ -15,30 +15,32 @@
  */
 
 import Handlebars from "handlebars";
-import type { TreeNode } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
-import { buildContextPrompt } from "./contextPrompt.js";
-import type { Exemplar, Prompt } from "./types.js";
+import { buildExemplarPrompt } from "./exemplarPrompt.js";
+import { buildStyleGuidePrompt } from "./styleGuidePrompt.js";
+import type { Exemplar } from "./types.js";
 
-const template = `Your task is the answer the following query related to the specified content:
+const template = `These are best practices for writing Markdown content for this project:
 
-{{{question}}}`;
+{{{styleGuidePrompt}}}
 
-export function buildAskPrompt(
-  question: string,
-  nodes: TreeNode[],
+{{{exemplarPrompt}}}
+`;
+
+export function buildBestPracticesPrompt(
   language: Language,
   styleGuides: string[],
-  exemplars: Exemplar[],
-): Prompt {
+  exemplarNodes: Exemplar[],
+) {
   const promptTemplate = Handlebars.compile(template);
 
-  const context = buildContextPrompt(nodes, language, styleGuides, exemplars);
+  const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);
 
-  return {
-    context,
-    prompt: promptTemplate({
-      question,
-    }),
-  };
+  const exemplarPrompt = buildExemplarPrompt(language, exemplarNodes);
+
+  return promptTemplate({
+    styleGuidePrompt,
+    exemplarPrompt,
+    language: language.name,
+  }).trim();
 }
