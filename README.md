@@ -350,6 +350,21 @@ toolkit-md ask ./docs --question "What are the installation requirements and set
 - `--exemplar`
 - `--style-guide`
 
+### `mcp`
+
+Starts an MCP server that exposes tool features to MCP clients. See below for further information.
+
+**Example:**
+
+```bash
+toolkit-md mcp
+```
+
+**Options:**
+
+- `--language`
+- `--default-language`
+
 ## Model Context Protocol server
 
 The built-in MCP server allows tools like Cursor, Cline and Q Developer to integrate and leverage the same Markdown file discovery, parsing and style guides as running the CLI commands. This is useful when working in an IDE to write new content or review existing content using agentic AI tools.
