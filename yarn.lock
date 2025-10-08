@@ -574,7 +574,6 @@ __metadata:
     check-licenses: "npm:^1.1.0"
     commander: "npm:^14.0.0"
     diff: "npm:^7.0.0"
-    fast-xml-parser: "npm:^5.2.5"
     globby: "npm:^14.0.2"
     gray-matter: "npm:^4.0.3"
     handlebars: "npm:^4.7.8"
@@ -3991,7 +3990,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-xml-parser@npm:5.2.5, fast-xml-parser@npm:^5.2.5":
+"fast-xml-parser@npm:5.2.5":
   version: 5.2.5
   resolution: "fast-xml-parser@npm:5.2.5"
   dependencies:
