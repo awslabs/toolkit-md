@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { MarkdownTree } from "../../content/md.js";
+import type { ContentTree } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 
 const template = `This is a map of Markdown content in this project in {{language.name}}. All files are relative to the following directory:
@@ -31,12 +31,16 @@ No content was found
 {{/if}}
 `;
 
-export function buildContentMapPrompt(tree: MarkdownTree, language: Language) {
+export function buildContentMapPrompt(
+  tree: ContentTree,
+  contentDir: string,
+  language: Language,
+) {
   const promptTemplate = Handlebars.compile(template);
 
   return promptTemplate({
-    rootDir: tree.getTree().path,
-    contentMap: tree.getTreeMap(language.code),
+    rootDir: contentDir,
+    contentMap: tree.getTreeMap(),
     language,
   }).trim();
 }

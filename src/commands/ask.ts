@@ -17,7 +17,6 @@
 import { Command } from "commander";
 import { buildAskPrompt, DefaultBedrockClient } from "../ai/index.js";
 import { ConfigManager } from "../config/index.js";
-import { MarkdownTree } from "../content/index.js";
 import type { LogWriter } from "./logger.js";
 import { logo } from "./logo.js";
 import {
@@ -73,9 +72,14 @@ async function executeAction(
 
   const { requestRate, tokenRate } = utils.getRateLimitOptions(config, logger);
 
-  const exemplars = utils.getExemplars(cwd, defaultLanguage, config);
+  const exemplars = await utils.getExemplars(
+    cwd,
+    defaultLanguage,
+    language,
+    config,
+  );
 
-  const styleGuides = utils.getStyleGuides(
+  const styleGuides = await utils.getStyleGuides(
     cwd,
     config,
     defaultLanguage,
@@ -87,13 +91,13 @@ async function executeAction(
 
   const contentDir = utils.getContentDir(config);
 
-  const tree = new MarkdownTree(
+  const tree = await utils.buildContentTree(
     contentDir || content,
-    defaultLanguage.code,
-    cwd,
+    defaultLanguage,
+    language,
   );
 
-  const nodes = tree.getFlattenedTree(contentDir ? content : undefined);
+  const nodes = tree.getFlattenedTree();
 
   const client = new DefaultBedrockClient(
     model,

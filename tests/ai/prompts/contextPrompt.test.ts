@@ -17,38 +17,17 @@
 import { describe, expect, test } from "vitest";
 import type { Exemplar } from "../../../src/ai/index.js";
 import { buildContextPrompt } from "../../../src/ai/prompts/contextPrompt";
-import type { LanguageContent, TreeNode } from "../../../src/content/index.js";
 import type { Language } from "../../../src/languages/index.js";
+import {
+  createMockEmptyTreeNode,
+  createMockTreeNode,
+} from "../../testUtils.js";
 
 describe("buildContextPrompt", () => {
   const mockLanguage: Language = {
     code: "en-US",
     name: "English (United States)",
   };
-
-  const createMockLanguageContent = (content: string): LanguageContent => ({
-    content,
-    frontmatter: {},
-    path: "/mock/path.md",
-    relativePath: "/mock/path.md",
-    hash: "mock-hash",
-  });
-
-  const createMockTreeNode = (
-    path: string,
-    content: string,
-    languageCode = "en-US",
-  ): TreeNode => ({
-    name: "mock-node",
-    path,
-    relativePath: path,
-    isIndexPage: false,
-    isDirectory: false,
-    weight: 0,
-    languages: new Map([[languageCode, createMockLanguageContent(content)]]),
-    children: [],
-    parent: null,
-  });
 
   test("should generate prompt with context files only", () => {
     const contextNodes = [
@@ -173,27 +152,26 @@ describe("buildContextPrompt", () => {
     expect(result).toContain("# Reference\nReference content");
   });
 
-  test("should filter context nodes by language", () => {
+  test("should handle nodes with content", () => {
     const contextNodes = [
-      createMockTreeNode("/file1.md", "English content", "en-US"),
-      createMockTreeNode("/file2.md", "French content", "fr-FR"),
+      createMockTreeNode("/file1.md", "English content"),
+      // Create a node without content to test filtering
+      createMockEmptyTreeNode("/file2.md"),
     ];
 
     const result = buildContextPrompt(contextNodes, mockLanguage, [], []);
 
     expect(result).toContain("English content");
-    expect(result).not.toContain("French content");
     expect(result).toContain('<file path="/file1.md">');
     expect(result).not.toContain('<file path="/file2.md">');
   });
 
-  test("should filter exemplar nodes by language", () => {
-    const contextNodes = [
-      createMockTreeNode("/content.md", "Main content", "en-US"),
-    ];
+  test("should handle exemplar nodes with content", () => {
+    const contextNodes = [createMockTreeNode("/content.md", "Main content")];
     const exemplarNodes = [
-      createMockTreeNode("/examples/example1.md", "English example", "en-US"),
-      createMockTreeNode("/examples/example2.md", "Spanish example", "es-US"),
+      createMockTreeNode("/examples/example1.md", "English example"),
+      // Create a node without content to test filtering
+      createMockEmptyTreeNode("/examples/example2.md"),
     ];
     const exemplars: Exemplar[] = [
       {
@@ -210,7 +188,6 @@ describe("buildContextPrompt", () => {
     );
 
     expect(result).toContain("English example");
-    expect(result).not.toContain("Spanish example");
     expect(result).toContain('<example_file path="/examples/example1.md">');
     expect(result).not.toContain('<example_file path="/examples/example2.md">');
   });
@@ -251,15 +228,15 @@ describe("buildContextPrompt", () => {
     const result = buildContextPrompt(contextNodes, mockLanguage, [], []);
 
     expect(result).toContain(
-      "# Title\n\n```javascript\nconst x = &apos;test&apos;;\n```\n\n&lt;div&gt;HTML content&lt;/div&gt;",
+      "# Title\n\n```javascript\nconst x = 'test';\n```\n\n<div>HTML content</div>",
     );
   });
 
   test("should handle multiple nodes with same language", () => {
     const contextNodes = [
-      createMockTreeNode("/file1.md", "Content 1", "en-US"),
-      createMockTreeNode("/file2.md", "Content 2", "en-US"),
-      createMockTreeNode("/file3.md", "Content 3", "en-US"),
+      createMockTreeNode("/file1.md", "Content 1"),
+      createMockTreeNode("/file2.md", "Content 2"),
+      createMockTreeNode("/file3.md", "Content 3"),
     ];
 
     const result = buildContextPrompt(contextNodes, mockLanguage, [], []);
@@ -277,9 +254,7 @@ describe("buildContextPrompt", () => {
       code: "fr-FR",
       name: "Français",
     };
-    const contextNodes = [
-      createMockTreeNode("/file.md", "Contenu français", "fr-FR"),
-    ];
+    const contextNodes = [createMockTreeNode("/file.md", "Contenu français")];
 
     const result = buildContextPrompt(contextNodes, frenchLanguage, [], []);
 

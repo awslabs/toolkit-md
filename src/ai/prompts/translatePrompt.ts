@@ -16,10 +16,9 @@
 
 import Handlebars from "handlebars";
 import {
-  type LanguageContent,
-  type MarkdownTree,
+  type ContentNode,
+  type ContentTree,
   TRANSLATION_SRC_HASH_KEY,
-  type TreeNode,
 } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
@@ -30,7 +29,7 @@ import {
   getContext,
 } from "./utils.js";
 
-const template = `Your task is to translate the content provided for file "{{currentNode.path}}" to {{targetLanguage.name}} ({{targetLanguage.code}}).
+const template = `Your task is to translate the content provided for file "{{currentNode.filePath}}" to {{targetLanguage.name}} ({{targetLanguage.code}}).
 
 DO NOT make any changes not related to translating the content
 ALWAYS return the entire translated file, do not abbreviate it
@@ -50,10 +49,9 @@ The existing translation for this file is provided below enclosed in <existingTr
 `;
 
 export function buildTranslatePrompt(
-  tree: MarkdownTree,
-  currentNode: TreeNode,
-  sourceContent: LanguageContent,
-  existingTranslation: LanguageContent | undefined,
+  tree: ContentTree,
+  currentNode: ContentNode,
+  existingTranslation: ContentNode | undefined,
   sourceLanguage: Language,
   targetLanguage: Language,
   contextStrategy: ContextStrategy,
@@ -77,14 +75,14 @@ export function buildTranslatePrompt(
       currentNode,
       targetLanguage,
       existingTranslation,
-      sourceHash: sourceContent.hash,
+      sourceHash: currentNode.hash,
     }),
-    sampleOutput: sourceContent.content,
-    prefill: `<file path="${currentNode.path}">`,
+    sampleOutput: currentNode.content || "",
+    prefill: `<file path="${currentNode.filePath}">`,
     transform: (input) => {
       const fileSection = extractFileSection(input);
 
-      if (fileSection.path !== currentNode.path) {
+      if (fileSection.path !== currentNode.filePath) {
         throw new Error(`Unexpected file path in output: ${fileSection.path}`);
       }
 

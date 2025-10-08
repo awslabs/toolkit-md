@@ -24,7 +24,7 @@ import type z from "zod";
 import { ZodArray, ZodBoolean, ZodDefault } from "zod";
 import type { ContextStrategy, Exemplar, TokenUsage } from "../ai/index.js";
 import type { ConfigManager } from "../config/index.js";
-import { MarkdownTree } from "../content/index.js";
+import { ContentTree, FileSystemProvider } from "../content/index.js";
 import { Language } from "../languages/index.js";
 import { ConsoleLogger, type LogWriter } from "./logger.js";
 
@@ -68,6 +68,41 @@ export function getContentDir(config: ConfigManager) {
   }
 
   return path.resolve(path.join(config.getCwd(), contentDir));
+}
+
+export function getContentDirWithTarget(config: ConfigManager, target: string) {
+  let contentDir = config.get<string>("contentDir");
+
+  if (!contentDir) {
+    contentDir = target;
+  } else {
+    contentDir = path.join(contentDir, target);
+  }
+
+  if (path.isAbsolute(contentDir)) {
+    return contentDir;
+  }
+
+  return path.resolve(path.join(config.getCwd(), contentDir));
+}
+
+export function getTranslationDir(config: ConfigManager, contentDir: string) {
+  let translationDir = config.get<string>("ai.translation.directory");
+  let overridden = true;
+
+  if (!translationDir) {
+    overridden = false;
+    translationDir = contentDir;
+  }
+
+  if (path.isAbsolute(translationDir)) {
+    return { translationDir, overridden };
+  }
+
+  return {
+    translationDir: path.resolve(path.join(config.getCwd(), translationDir)),
+    overridden,
+  };
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Options not typed
@@ -166,19 +201,21 @@ export function getRateLimitOptions(config: ConfigManager, logger: LogWriter) {
   };
 }
 
-export function getExemplars(
+export async function getExemplars(
   baseDir: string,
   defaultLanguage: Language,
+  language: Language,
   config: ConfigManager,
-): Exemplar[] {
+): Promise<Exemplar[]> {
   const exemplarPaths = config.get<string[]>("ai.exemplars");
 
   const exemplars: Exemplar[] = [];
 
   for (const exemplar of exemplarPaths) {
-    const tree = new MarkdownTree(
+    const tree = await buildContentTree(
       buildPath(exemplar, baseDir),
-      defaultLanguage.code,
+      defaultLanguage,
+      language,
     );
 
     exemplars.push({
@@ -198,13 +235,13 @@ export function getContextStrategy(config: ConfigManager) {
   return strategy as ContextStrategy;
 }
 
-export function getStyleGuides(
+export async function getStyleGuides(
   baseDir: string,
   config: ConfigManager,
   defaultLanguage: Language,
   logger: LogWriter,
   languages?: Language[],
-): string[] {
+): Promise<string[]> {
   const styleGuides = config.get<string[]>("ai.styleGuides");
   const styleGuideFiles: string[] = [];
 
@@ -227,17 +264,18 @@ export function getStyleGuides(
       if (stats.isDirectory()) {
         logger.message(`  - ${styleGuidePath}/`);
 
-        const tree = new MarkdownTree(resolvedPath, defaultLanguage.code);
-
         for (const language of languages) {
-          const contentFiles = tree.getContent(language.code);
+          const tree = await buildContentTree(resolvedPath, language, language);
+          const contentFiles = tree.getNodes();
 
           for (const contentFile of contentFiles) {
-            logger.message(
-              `  -> ${printRelativePath(contentFile.path, resolvedPath)}`,
-            );
+            if (contentFile.filePath && contentFile.content) {
+              logger.message(
+                `  -> ${printRelativePath(contentFile.filePath, resolvedPath)}`,
+              );
 
-            styleGuideFiles.push(contentFile.content);
+              styleGuideFiles.push(contentFile.content);
+            }
           }
         }
       } else {
@@ -382,4 +420,22 @@ export function camelToOptionFlag(camelCase: string): string {
 
   // Add the "--" prefix and ensure no double hyphens
   return `--${kebabCase}`;
+}
+
+export async function buildContentTree(
+  contentPath: string,
+  defaultLanguage: Language,
+  language: Language,
+  includeLanguageSuffix: boolean = true,
+) {
+  const provider = new FileSystemProvider(contentPath);
+  const entries = await provider.loadContent();
+  const tree = new ContentTree(provider, {
+    defaultLanguage: defaultLanguage.code,
+    language: language.code,
+    includeLanguageSuffix,
+  });
+  entries.forEach(({ path, content }) => tree.add(path, content));
+
+  return tree;
 }

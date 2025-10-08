@@ -36,7 +36,7 @@ export function buildBestPracticesPrompt(
 
   const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);
 
-  const exemplarPrompt = buildExemplarPrompt(language, exemplarNodes);
+  const exemplarPrompt = buildExemplarPrompt(exemplarNodes);
 
   return promptTemplate({
     styleGuidePrompt,

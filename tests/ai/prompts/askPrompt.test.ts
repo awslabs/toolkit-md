@@ -17,38 +17,14 @@
 import { describe, expect, test } from "vitest";
 import type { Exemplar } from "../../../src/ai/index.js";
 import { buildAskPrompt } from "../../../src/ai/prompts/askPrompt";
-import type { LanguageContent, TreeNode } from "../../../src/content/index.js";
 import type { Language } from "../../../src/languages/index.js";
+import { createMockTreeNode } from "../../testUtils.js";
 
 describe("buildAskPrompt", () => {
   const mockLanguage: Language = {
     code: "en-US",
     name: "English (United States)",
   };
-
-  const createMockLanguageContent = (content: string): LanguageContent => ({
-    content,
-    frontmatter: {},
-    path: "/mock/path.md",
-    relativePath: "/mock/path.md",
-    hash: "mock-hash",
-  });
-
-  const createMockTreeNode = (
-    path: string,
-    content: string,
-    languageCode = "en-US",
-  ): TreeNode => ({
-    name: "mock-node",
-    path,
-    relativePath: path,
-    isIndexPage: false,
-    isDirectory: false,
-    weight: 0,
-    languages: new Map([[languageCode, createMockLanguageContent(content)]]),
-    children: [],
-    parent: null,
-  });
 
   test("should generate ask prompt with basic question", () => {
     const question = "What is the main topic of this documentation?";
@@ -179,7 +155,7 @@ describe("buildAskPrompt", () => {
       'What are the "key features" mentioned in section 2.1? How do they relate to the API endpoints?',
     );
     expect(result.context).toContain(
-      "Key features include authentication &amp; rate limiting.",
+      "Key features include authentication & rate limiting.",
     );
   });
 
@@ -232,7 +208,6 @@ Please provide detailed feedback for each.`;
       createMockTreeNode(
         "/contenu.md",
         "# Contenu\nCeci est du contenu en français.",
-        "fr-FR",
       ),
     ];
 
@@ -292,7 +267,7 @@ And some HTML:
     expect(result.context).toContain("```javascript");
     expect(result.context).toContain("function hello(name)");
     expect(result.context).toContain("```html");
-    expect(result.context).toContain("&lt;div class=&quot;example&quot;&gt;");
+    expect(result.context).toContain(`<div class="example">`);
   });
 
   test("should handle questions with handlebars-like syntax", () => {

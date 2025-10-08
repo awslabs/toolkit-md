@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
-export * from "./providers/index.js";
-export * from "./tree/index.js";
-export * from "./utils/index.js";
+/**
+ * @fileoverview Content provider implementations.
+ *
+ * Re-exports all content provider interfaces and implementations.
+ */
+
+export * from "./ContentProvider.js";
+export * from "./FileSystemProvider.js";
+export * from "./MockProvider.js";

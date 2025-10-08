@@ -159,6 +159,28 @@ export const CONFIG_CHECK_TRANSLATION = withConfig(
   "TKMD_AI_CHECK_TRANSLATION",
 );
 
+export const CONFIG_TRANSLATION_DIR = withConfig(
+  z
+    .string()
+    .describe(
+      "Directory where translated content is stored, if not specified defaults to source directory",
+    )
+    .optional(),
+  "translationDir",
+  "TKMD_AI_TRANSLATION_DIRECTORY",
+);
+
+export const CONFIG_TRANSLATION_SKIP_SUFFIX = withConfig(
+  z
+    .boolean()
+    .describe(
+      "Omit the language code suffix for translated files ('example.fr.md' becomes 'example.md')",
+    )
+    .default(false),
+  "skipFileSuffix",
+  "TKMD_AI_TRANSLATION_SKIP_FILE_SUFFIX",
+);
+
 export const CONFIG_CONTEXT_STRATEGY = withConfig(
   z
     .enum(["siblings", "nothing", "everything"])
@@ -208,6 +230,8 @@ export const configSchema = z.object({
     translation: z.object({
       force: CONFIG_FORCE_TRANSLATION,
       check: CONFIG_CHECK_TRANSLATION,
+      directory: CONFIG_TRANSLATION_DIR,
+      skipFileSuffix: CONFIG_TRANSLATION_SKIP_SUFFIX,
     }),
   }),
 });

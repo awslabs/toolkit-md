@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { TreeNode } from "../../content/index.js";
+import type { ContentNode } from "../../content/index.js";
 
 /**
  * Represents a prompt configuration for AI model interactions.
@@ -59,5 +59,5 @@ export interface Prompt {
 export interface Exemplar {
   path: string;
 
-  nodes: TreeNode[];
+  nodes: ContentNode[];
 }
