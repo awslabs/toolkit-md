@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.6](https://github.com/awslabs/toolkit-md/compare/v0.1.5...v0.1.6) (2026-02-05)
+
+
+### Features
+
+* Bump default model to Sonnet 4.5 ([1dbd600](https://github.com/awslabs/toolkit-md/commit/1dbd600d7b973d20f0582e9676265bf1117ee897))
+* Initial MCP server implementation ([#11](https://github.com/awslabs/toolkit-md/issues/11)) ([81b5962](https://github.com/awslabs/toolkit-md/commit/81b5962fabb3136d038636c4c6be089f610d4d73))
+* Support generating translations to separate directory ([#14](https://github.com/awslabs/toolkit-md/issues/14)) ([dd76934](https://github.com/awslabs/toolkit-md/commit/dd76934d0317c9c1ec0460c5f4777b7b70d228b0))
+
 ## [0.1.5](https://github.com/awslabs/toolkit-md/compare/v0.1.4...v0.1.5) (2025-08-01)
 
 
