@@ -79,7 +79,7 @@ export const CONFIG_MODEL = withConfig(
   z
     .string()
     .describe("AWS Bedrock model ID")
-    .default("anthropic.claude-3-5-sonnet-20241022-v2:0"),
+    .default("global.anthropic.claude-sonnet-4-5-20250929-v1:0"),
   "model",
   "TKMD_AI_MODEL",
 );

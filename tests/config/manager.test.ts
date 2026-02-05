@@ -117,7 +117,7 @@ describe("ZodConfigManager", () => {
 
       // Check that default values are used
       expect(configManager.get("ai.model")).toBe(
-        "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
       );
       expect(configManager.get("ai.maxTokens")).toBe(4096);
       expect(configManager.getConfigFilePath()).toBeNull();
@@ -205,7 +205,7 @@ describe("ZodConfigManager", () => {
     it("should return default value with lowest priority", async () => {
       // Check that default value is used
       expect(configManager.get("ai.model")).toBe(
-        "anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
       );
     });
 

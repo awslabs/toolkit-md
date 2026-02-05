@@ -256,10 +256,16 @@ export class DefaultBedrockClient implements BedrockClient {
    */
   private isCachingSupported(modelId: string) {
     const validModels = [
-      "anthropic.claude-opus-4-20250514-v1:0",
-      "anthropic.claude-sonnet-4-20250514-v1:0",
-      "anthropic.claude-3-7-sonnet-20250219-v1:0",
-      "anthropic.claude-3-5-haiku-20241022-v1:0",
+      "anthropic.claude-opus-4-6",
+      "anthropic.claude-opus-4-5",
+      "anthropic.claude-opus-4-1",
+      "anthropic.claude-opus-4",
+      "anthropic.claude-sonnet-4-5",
+      "anthropic.claude-haiku-4-5",
+      "anthropic.claude-opus-4",
+      "anthropic.claude-sonnet-4",
+      "anthropic.claude-3-7-sonnet",
+      "anthropic.claude-3-5-haiku",
       "amazon.nova-micro-v1:0",
       "amazon.nova-lite-v1:0",
       "amazon.nova-pro-v1:0",
