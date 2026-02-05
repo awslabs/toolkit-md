@@ -9,6 +9,8 @@ The repository is structured like so:
 - `src`: Application source code
 - `tests`: Unit tests for code
 
+When making changes to code in the `src` directory ALWAYS check to see if there are corresponding tests that need created, updated or removed.
+
 ## Project README
 
 When making changes to the project README:
