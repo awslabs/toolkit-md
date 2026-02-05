@@ -28,7 +28,7 @@ The content is written in {{language}} provided in Markdown format below in the 
 
 <content_files>
 {{#each contextFiles}}
-<file path="{{this.filePath}}">
+<file path="{{this.path}}">
 {{{this.content}}}
 </file>
 {{/each}}
