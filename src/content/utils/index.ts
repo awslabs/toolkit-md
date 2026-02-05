@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
-export * from "./providers/index.js";
-export * from "./tree/index.js";
-export * from "./utils/index.js";
+/**
+ * @fileoverview Utility functions for content processing.
+ *
+ * Re-exports all utility functions for language detection and markdown parsing.
+ */
+
+export * from "./languageUtils.js";
+export * from "./markdownUtils.js";

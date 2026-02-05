@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { MarkdownTree } from "../../content/index.js";
+import type { ContentTree } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContentMapPrompt } from "./contentMapPrompt.js";
 import { buildStyleGuidePrompt } from "./styleGuidePrompt.js";
@@ -62,16 +62,27 @@ No existing translated Markdown content was found based on the provided criteria
 `;
 
 export function buildTranslationAgentPrompt(
-  tree: MarkdownTree,
+  sourceTree: ContentTree,
+  targetTree: ContentTree,
   sourceLanguage: Language,
   targetLanguage: Language,
   includeSourceContentMap: boolean,
+  sourceContentDirectory: string,
+  targetContentDirectory: string,
   styleGuides: string[],
 ): Prompt {
   const promptTemplate = Handlebars.compile(template);
 
-  const sourceContentMap = buildContentMapPrompt(tree, sourceLanguage);
-  const targetContentMap = buildContentMapPrompt(tree, targetLanguage);
+  const sourceContentMap = buildContentMapPrompt(
+    sourceTree,
+    sourceContentDirectory,
+    sourceLanguage,
+  );
+  const targetContentMap = buildContentMapPrompt(
+    targetTree,
+    targetContentDirectory,
+    targetLanguage,
+  );
 
   const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);
 

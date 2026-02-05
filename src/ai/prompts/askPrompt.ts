@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { TreeNode } from "../../content/index.js";
+import type { ContentNode } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
 import type { Exemplar, Prompt } from "./types.js";
@@ -26,7 +26,7 @@ const template = `Your task is the answer the following query related to the spe
 
 export function buildAskPrompt(
   question: string,
-  nodes: TreeNode[],
+  nodes: ContentNode[],
   language: Language,
   styleGuides: string[],
   exemplars: Exemplar[],

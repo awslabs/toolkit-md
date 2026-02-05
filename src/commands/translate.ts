@@ -20,9 +20,14 @@ import { buildTranslatePrompt, DefaultBedrockClient } from "../ai/index.js";
 import {
   CONFIG_CHECK_TRANSLATION,
   CONFIG_FORCE_TRANSLATION,
+  CONFIG_TRANSLATION_DIR,
+  CONFIG_TRANSLATION_SKIP_SUFFIX,
   ConfigManager,
 } from "../config/index.js";
-import { MarkdownTree, TRANSLATION_SRC_HASH_KEY } from "../content/index.js";
+import {
+  type ContentNode,
+  TRANSLATION_SRC_HASH_KEY,
+} from "../content/index.js";
 import { Language } from "../languages/index.js";
 import type { LogWriter } from "./logger.js";
 import { logo } from "./logo.js";
@@ -54,6 +59,8 @@ export function createTranslateCommand(): Command {
 
   utils.optionForConfigSchema(command, CONFIG_CHECK_TRANSLATION);
   utils.optionForConfigSchema(command, CONFIG_FORCE_TRANSLATION);
+  utils.optionForConfigSchema(command, CONFIG_TRANSLATION_DIR);
+  utils.optionForConfigSchema(command, CONFIG_TRANSLATION_SKIP_SUFFIX);
 
   return command;
 }
@@ -90,9 +97,14 @@ async function executeAction(
 
   const contextStrategy = utils.getContextStrategy(config);
 
-  const exemplars = utils.getExemplars(cwd, defaultLanguage, config);
+  const exemplars = await utils.getExemplars(
+    cwd,
+    defaultLanguage,
+    language,
+    config,
+  );
 
-  const styleGuides = utils.getStyleGuides(
+  const styleGuides = await utils.getStyleGuides(
     cwd,
     config,
     defaultLanguage,
@@ -102,22 +114,30 @@ async function executeAction(
 
   const enableCache = utils.shouldEnableCache(contextStrategy);
 
+  const contentDir = utils.getContentDirWithTarget(config, content);
+  const { translationDir, overridden: translationDirOverridden } =
+    utils.getTranslationDir(config, contentDir);
   const forceTranslation = config.get<boolean>("ai.translation.force");
   const checkTranslation = config.get<boolean>("ai.translation.check");
+  const skipFileSuffix = config.get<boolean>("ai.translation.skipFileSuffix");
+
+  if (skipFileSuffix && !translationDirOverridden) {
+    throw new Error(
+      `Translation directory must be overridden with --translation-dir when skip file suffix is enabled.`,
+    );
+  }
 
   let changeDetected = false;
 
   console.log("\n");
 
-  const contentDir = utils.getContentDir(config);
-
-  const tree = new MarkdownTree(
-    contentDir || content,
-    defaultLanguage.code,
-    cwd,
+  const sourceTree = await utils.buildContentTree(
+    contentDir,
+    defaultLanguage,
+    language,
   );
 
-  const nodes = tree.getFlattenedTree(contentDir ? content : undefined);
+  const nodes = sourceTree.getFlattenedTree();
 
   const client = new DefaultBedrockClient(
     model,
@@ -127,24 +147,36 @@ async function executeAction(
     5,
   );
 
+  // Create target tree to check for existing translations
+  const targetTree = await utils.buildContentTree(
+    translationDir,
+    skipFileSuffix ? targetLanguage : defaultLanguage,
+    targetLanguage,
+    !skipFileSuffix,
+  );
+
+  const initialTargetNodes = targetTree
+    .getNodes()
+    .filter((e) => !e.isDirectory)
+    .map((e) => e.path);
+
   for (const node of nodes) {
-    const languageContent = node.languages.get(language.code);
+    removeTargetNode(node, initialTargetNodes);
 
-    if (languageContent) {
-      const existingTranslation = node.languages.get(targetLanguage.code);
+    if (node.content) {
+      // Find corresponding node in target tree
+      const targetNode = targetTree.getNode(node.path);
+      const existingTranslation = targetNode?.content;
 
-      if (!forceTranslation && existingTranslation) {
-        const existingTranslationHash = existingTranslation.frontmatter[
+      if (!forceTranslation && existingTranslation && targetNode?.frontmatter) {
+        const existingTranslationHash = targetNode.frontmatter[
           TRANSLATION_SRC_HASH_KEY
         ] as string | undefined;
 
         if (existingTranslationHash) {
-          if (existingTranslationHash === languageContent.hash) {
+          if (existingTranslationHash === node.hash) {
             console.log(
-              `ℹ️  ${chalk.yellow("Skipping")} ${utils.printRelativePath(
-                node.path,
-                cwd,
-              )} - no changes detected`,
+              `ℹ️  ${chalk.yellow("Skipping")} ${node.filePath} - no changes detected`,
             );
             continue;
           }
@@ -154,20 +186,14 @@ async function executeAction(
       changeDetected = true;
 
       if (checkTranslation) {
-        console.log(
-          `⚠️  Translation required for ${utils.printRelativePath(
-            node.path,
-            cwd,
-          )}`,
-        );
+        console.log(`⚠️  Translation required for ${node.filePath}`);
         continue;
       }
 
       const prompt = buildTranslatePrompt(
-        tree,
+        sourceTree,
         node,
-        languageContent,
-        existingTranslation,
+        targetNode || undefined,
         language,
         targetLanguage,
         contextStrategy,
@@ -176,22 +202,22 @@ async function executeAction(
       );
 
       const { response } = await utils.withSpinner(
-        `Processing ${utils.printRelativePath(languageContent.path, cwd)}`,
+        `Processing ${node.filePath}`,
         async () => {
           return { response: await client.generate(prompt, enableCache) };
         },
       );
 
       if (write) {
-        const { languageContent: writtenContent } = tree.addOrUpdateContent(
-          node.path,
-          response.output,
-          targetLanguage.code,
-        );
+        let writtenNode = targetNode;
 
-        console.log(
-          `📜 Wrote to file ${utils.printRelativePath(writtenContent.path, cwd)}`,
-        );
+        if (!writtenNode) {
+          writtenNode = await targetTree.create(node.path, response.output);
+        } else {
+          await targetTree.updateContent(writtenNode, response.output);
+        }
+
+        console.log(`📜 Wrote to file ${writtenNode.filePath}`);
       } else {
         console.log(response.output);
       }
@@ -199,10 +225,23 @@ async function executeAction(
       console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);
     } else {
       console.log(
-        `⚠️  No content found for language ${language.code} in ${utils.printRelativePath(
-          node.path,
-          cwd,
-        )}`,
+        `⚠️  No content found for language ${language.code} in ${node.filePath}`,
+      );
+    }
+  }
+
+  for (const leftoverNodePath of initialTargetNodes) {
+    changeDetected = true;
+
+    if (write) {
+      console.log(
+        `🔃 Cleaning up orphaned translation for ${leftoverNodePath}`,
+      );
+
+      targetTree.delete(leftoverNodePath);
+    } else {
+      console.log(
+        `⚠️  Orphaned translation file ${leftoverNodePath} should be cleaned up`,
       );
     }
   }
@@ -214,5 +253,12 @@ async function executeAction(
       ),
     );
     process.exit(1);
+  }
+}
+
+function removeTargetNode(node: ContentNode, targetNodes: string[]) {
+  const index = targetNodes.indexOf(node.path);
+  if (index !== -1) {
+    targetNodes.splice(index, 1);
   }
 }

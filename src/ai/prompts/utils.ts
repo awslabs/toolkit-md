@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-import { XMLParser } from "fast-xml-parser";
-import type { MarkdownTree, TreeNode } from "../../content/index.js";
-import type { Language } from "../../languages/index.js";
+import type { ContentNode, ContentTree } from "../../content/index.js";
 
 export type ContextStrategy = "everything" | "nothing" | "siblings";
 
 export function getContext(
-  tree: MarkdownTree,
-  currentNode: TreeNode,
+  tree: ContentTree,
+  currentNode: ContentNode,
   strategy: ContextStrategy,
-): TreeNode[] {
+): ContentNode[] {
   switch (strategy) {
     case "everything":
       return tree.getFlattenedTree();
@@ -71,44 +69,43 @@ interface FileSection {
   content: string;
 }
 
-export function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-export function unescapeXml(str: string): string {
-  return str
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
-}
-
+/**
+ * Parses a file section from XML-like string format using regex.
+ *
+ * Extracts the path attribute and content from a string in the format:
+ * `<file path="example.txt">file content here</file>`
+ *
+ * @param input - The input string containing the file tag
+ * @returns Object with path and content properties
+ * @throws Error if the input format is invalid or required parts are missing
+ *
+ * @example
+ * ```typescript
+ * const result = extractFileSection('<file path="test.txt">Hello World</file>');
+ * // Returns: { path: "test.txt", content: "Hello World" }
+ * ```
+ */
 export function extractFileSection(input: string): FileSection {
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    stopNodes: ["file"],
-  });
-  const parsed = parser.parse(input);
+  // Regex to match <file path="...">content</file> format
+  const fileTagRegex = /<file\s+path="([^"]*)"\s*>([\s\S]*?)<\/file>/;
+  const match = input.match(fileTagRegex);
 
-  if (parsed.file) {
-    const text: string = parsed.file["#text"];
-    const path = parsed.file["@_path"];
-
-    if (text && path) {
-      return {
-        path,
-        content: unescapeXml(text.trimStart()),
-      };
-    }
+  if (!match) {
+    throw new Error(
+      'Invalid file format: Expected <file path="...">content</file>',
+    );
   }
 
-  throw new Error("Failed to parse file response");
+  const [, path, content] = match;
+
+  if (!path || path.trim() === "") {
+    throw new Error("Missing or empty path attribute in file tag");
+  }
+
+  return {
+    path: path.trim(),
+    content: content.trimStart(),
+  };
 }
 
 export interface File {
@@ -116,16 +113,14 @@ export interface File {
   content: string;
 }
 
-export function buildFileList(nodes: TreeNode[], language: Language): File[] {
+export function buildFileList(nodes: ContentNode[]): File[] {
   return nodes
-    .filter((e) => e.languages.has(language.code))
+    .filter((e) => e.content !== null)
     .map((e) => {
-      const languageEntry = e.languages.get(language.code);
-
       return {
         path: e.path,
         // biome-ignore lint/style/noNonNullAssertion: Filtered above
-        content: escapeXml(languageEntry!.content),
+        content: e.content!,
       };
     });
 }

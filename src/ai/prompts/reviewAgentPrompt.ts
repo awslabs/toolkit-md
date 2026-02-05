@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { MarkdownTree } from "../../content/index.js";
+import type { ContentTree } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContentMapPrompt } from "./contentMapPrompt.js";
 import { buildStyleGuidePrompt } from "./styleGuidePrompt.js";
@@ -60,14 +60,15 @@ No Markdown content was found based on the provided criteria.
 `;
 
 export function buildReviewAgentPrompt(
-  tree: MarkdownTree,
+  tree: ContentTree,
   language: Language,
+  contentDirectory: string,
   includeContentMap: boolean,
   styleGuides: string[],
 ): Prompt {
   const promptTemplate = Handlebars.compile(template);
 
-  const contentMap = buildContentMapPrompt(tree, language);
+  const contentMap = buildContentMapPrompt(tree, contentDirectory, language);
 
   const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);
 

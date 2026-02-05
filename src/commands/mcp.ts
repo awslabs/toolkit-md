@@ -27,7 +27,6 @@ import {
 } from "../ai/prompts/index.js";
 import { VERSION } from "../cli.js";
 import { ConfigManager } from "../config/index.js";
-import { MarkdownTree } from "../content/index.js";
 import { Language } from "../languages/index.js";
 import { ConsoleErrorLogger, NoopLogger } from "./logger.js";
 import { commonOptions, languageOptions } from "./options.js";
@@ -102,9 +101,14 @@ async function executeAction(options: any): Promise<void> {
         languages.push(resolvedTargetLanguage);
       }
 
-      const exemplars = utils.getExemplars(projectDir, defaultLanguage, config);
+      const exemplars = await utils.getExemplars(
+        projectDir,
+        defaultLanguage,
+        language,
+        config,
+      );
 
-      const styleGuides = utils.getStyleGuides(
+      const styleGuides = await utils.getStyleGuides(
         projectDir,
         config,
         defaultLanguage,
@@ -176,10 +180,10 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
         throw new Error(`Invalid source language: ${sourceLanguage}`);
       }
 
-      const tree = new MarkdownTree(
+      const tree = await utils.buildContentTree(
         contentDir ?? projectDir,
-        defaultLanguage.code,
-        projectDirectory,
+        defaultLanguage,
+        language,
       );
 
       const prompt = buildContentSummaryPrompt(
@@ -239,19 +243,11 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
 
       const contentDir = utils.getContentDir(config) || projectDir;
 
-      let resolvedSourceDirectory: string | undefined;
-
-      if (sourceDirectory) {
-        resolvedSourceDirectory = path.join(contentDir, sourceDirectory);
-      }
+      const resolvedSourceDirectory = sourceDirectory
+        ? path.join(contentDir, sourceDirectory)
+        : contentDir;
 
       const { language, defaultLanguage } = utils.getLanguages(config);
-
-      const tree = new MarkdownTree(
-        resolvedSourceDirectory ?? contentDir,
-        defaultLanguage.code,
-        projectDirectory,
-      );
 
       var resolvedSourceLanguage: Language | undefined;
 
@@ -265,7 +261,13 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
         throw new Error(`Invalid source language: ${sourceLanguage}`);
       }
 
-      const styleGuides = utils.getStyleGuides(
+      const tree = await utils.buildContentTree(
+        resolvedSourceDirectory ?? projectDir,
+        defaultLanguage,
+        resolvedSourceLanguage,
+      );
+
+      const styleGuides = await utils.getStyleGuides(
         projectDir,
         config,
         defaultLanguage,
@@ -276,6 +278,7 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
       const prompt = buildReviewAgentPrompt(
         tree,
         resolvedSourceLanguage,
+        resolvedSourceDirectory,
         includeContentMap,
         styleGuides,
       );
@@ -334,19 +337,15 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
 
       const contentDir = utils.getContentDir(config) || projectDir;
 
-      let resolvedSourceDirectory: string | undefined;
-
-      if (sourceDirectory) {
-        resolvedSourceDirectory = path.join(contentDir, sourceDirectory);
-      }
+      const resolvedSourceDirectory = sourceDirectory
+        ? path.join(contentDir, sourceDirectory)
+        : contentDir;
+      const resolvedTargetDirectory = utils.getTranslationDir(
+        config,
+        resolvedSourceDirectory,
+      );
 
       const { language, defaultLanguage } = utils.getLanguages(config);
-
-      const tree = new MarkdownTree(
-        resolvedSourceDirectory ?? contentDir,
-        defaultLanguage.code,
-        projectDirectory,
-      );
 
       var resolvedSourceLanguage: Language | undefined;
 
@@ -360,6 +359,12 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
         throw new Error(`Invalid source language: ${sourceLanguage}`);
       }
 
+      const sourceTree = await utils.buildContentTree(
+        resolvedSourceDirectory,
+        defaultLanguage,
+        resolvedSourceLanguage,
+      );
+
       var resolvedTargetLanguage: Language | undefined;
 
       if (targetLanguage) {
@@ -370,7 +375,13 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
         throw new Error(`Invalid target language: ${targetLanguage}`);
       }
 
-      const styleGuides = utils.getStyleGuides(
+      const targetTree = await utils.buildContentTree(
+        resolvedSourceDirectory ?? projectDir,
+        defaultLanguage,
+        resolvedTargetLanguage,
+      );
+
+      const styleGuides = await utils.getStyleGuides(
         projectDir,
         config,
         defaultLanguage,
@@ -379,10 +390,13 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
       );
 
       const prompt = buildTranslationAgentPrompt(
-        tree,
-        language,
+        sourceTree,
+        targetTree,
+        resolvedSourceLanguage,
         resolvedTargetLanguage,
         includeSourceContentMap,
+        resolvedSourceDirectory,
+        resolvedTargetDirectory.translationDir,
         styleGuides,
       );
 

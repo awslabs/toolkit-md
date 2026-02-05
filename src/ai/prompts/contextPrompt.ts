@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { TreeNode } from "../../content/index.js";
+import type { ContentNode } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildExemplarPrompt } from "./exemplarPrompt.js";
 import { buildStyleGuidePrompt } from "./styleGuidePrompt.js";
@@ -34,26 +34,24 @@ The content is written in {{language}} provided in Markdown format below in the 
 {{/each}}
 </content_files>
 
-IMPORTANT: The files may have escaped characters in the contents. You MUST keep these characters escaped unless the content has been changed.
-
 The order of the files in the list should be used when considering changes as they are ordered by how the reader will consume them.
 
 {{{exemplarPrompt}}}
 `;
 
 export function buildContextPrompt(
-  contextNodes: TreeNode[],
+  contextNodes: ContentNode[],
   language: Language,
   styleGuides: string[],
   exemplars: Exemplar[],
 ) {
   const promptTemplate = Handlebars.compile(template);
 
-  const contextFiles = buildFileList(contextNodes, language);
+  const contextFiles = buildFileList(contextNodes);
 
   const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);
 
-  const exemplarPrompt = buildExemplarPrompt(language, exemplars);
+  const exemplarPrompt = buildExemplarPrompt(exemplars);
 
   return promptTemplate({
     contextFiles,

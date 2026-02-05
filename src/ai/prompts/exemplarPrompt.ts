@@ -15,7 +15,6 @@
  */
 
 import Handlebars from "handlebars";
-import type { Language } from "../../languages/index.js";
 import type { Exemplar } from "./types.js";
 import { buildFileList } from "./utils.js";
 
@@ -39,7 +38,7 @@ Each example may have one or more files across which the content is split, conta
 {{/each}}
 {{/if}}`;
 
-export function buildExemplarPrompt(language: Language, exemplars: Exemplar[]) {
+export function buildExemplarPrompt(exemplars: Exemplar[]) {
   const promptTemplate = Handlebars.compile(template);
 
   const exemplarFiles: ExemplarFiles[] = [];
@@ -47,7 +46,7 @@ export function buildExemplarPrompt(language: Language, exemplars: Exemplar[]) {
   for (const exemplar of exemplars) {
     exemplarFiles.push({
       path: exemplar.path,
-      files: buildFileList(exemplar.nodes, language),
+      files: buildFileList(exemplar.nodes),
     });
   }
 

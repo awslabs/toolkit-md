@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { MarkdownTree } from "../../content/index.js";
+import type { ContentTree } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContentMapPrompt } from "./contentMapPrompt.js";
 
@@ -39,7 +39,7 @@ For example, a file "test.md" is assumed to be {{defaultLanguage.name}} even if 
 `;
 
 export function buildContentSummaryPrompt(
-  tree: MarkdownTree,
+  tree: ContentTree,
   projectDirectory: string,
   contentDirectory: string | undefined,
   language: Language,
@@ -48,7 +48,11 @@ export function buildContentSummaryPrompt(
 ): string {
   const promptTemplate = Handlebars.compile(template);
 
-  const contentMap = buildContentMapPrompt(tree, sourceLanguage);
+  const contentMap = buildContentMapPrompt(
+    tree,
+    contentDirectory || projectDirectory,
+    sourceLanguage,
+  );
 
   return promptTemplate({
     language,

@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import type { Exemplar } from "../../../src/ai/index.js";
 import { buildTranslatePrompt } from "../../../src/ai/prompts/translatePrompt";
-import type {
-  LanguageContent,
-  MarkdownTree,
-  TreeNode,
-} from "../../../src/content/index.js";
 import { TRANSLATION_SRC_HASH_KEY } from "../../../src/content/index.js";
 import type { Language } from "../../../src/languages/index.js";
+import { createMockTree, createMockTreeNode } from "../../testUtils.js";
 
 describe("buildTranslatePrompt", () => {
   const mockSourceLanguage: Language = {
@@ -36,54 +32,16 @@ describe("buildTranslatePrompt", () => {
     name: "Français",
   };
 
-  const createMockLanguageContent = (
-    content: string,
-    hash = "mock-hash",
-  ): LanguageContent => ({
-    content,
-    frontmatter: {},
-    path: "/mock/path.md",
-    relativePath: "/mock/path.md",
-    hash,
-  });
-
-  const createMockTreeNode = (
-    path: string,
-    content: string,
-    languageCode = "en-US",
-  ): TreeNode => ({
-    name: "mock-node",
-    path,
-    relativePath: path,
-    isIndexPage: false,
-    isDirectory: false,
-    weight: 0,
-    languages: new Map([[languageCode, createMockLanguageContent(content)]]),
-    children: [],
-    parent: null,
-  });
-
-  const createMockMarkdownTree = (nodes: TreeNode[]): MarkdownTree =>
-    ({
-      getFlattenedTree: vi.fn().mockReturnValue(nodes),
-      getSiblings: vi.fn().mockReturnValue(nodes.slice(1)),
-    }) as unknown as MarkdownTree;
-
   test("should generate translate prompt with basic configuration", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-      "source-hash-123",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -96,7 +54,7 @@ describe("buildTranslatePrompt", () => {
       'translate the content provided for file "/content/test.md" to Français (fr-FR)',
     );
     expect(result.prompt).toContain(
-      `'${TRANSLATION_SRC_HASH_KEY}' with value 'source-hash-123'`,
+      `'${TRANSLATION_SRC_HASH_KEY}' with value '5187eda312113ceb32b08b11288bb4da'`,
     );
     expect(result.prompt).toContain(
       "DO NOT make any changes not related to translating",
@@ -108,23 +66,19 @@ describe("buildTranslatePrompt", () => {
   });
 
   test("should include existing translation when provided", () => {
-    const currentNode = createMockTreeNode(
+    const existingTranslation = createMockTreeNode(
+      "/content/test.fr.md",
+      "# Contenu de Test\nCeci est du contenu de test.",
+    );
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-      "source-hash-123",
-    );
-    const existingTranslation = createMockLanguageContent(
-      "# Contenu de Test\nCeci est du contenu de test.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       existingTranslation,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -145,23 +99,19 @@ describe("buildTranslatePrompt", () => {
   });
 
   test("should include context based on strategy", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const contextNode = createMockTreeNode(
+    tree.forceAdd(
       "/content/context.md",
       "# Context Content\nThis provides context.",
     );
-    const tree = createMockMarkdownTree([currentNode, contextNode]);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -173,24 +123,19 @@ describe("buildTranslatePrompt", () => {
     expect(result.context).toContain(
       "The content is written in English (United States) provided in Markdown format below",
     );
-    expect(tree.getFlattenedTree).toHaveBeenCalled();
   });
 
   test("should handle different context strategies", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
 
     // Test "nothing" strategy
     buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -203,7 +148,6 @@ describe("buildTranslatePrompt", () => {
     buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -211,19 +155,14 @@ describe("buildTranslatePrompt", () => {
       [],
       [],
     );
-
-    expect(tree.getSiblings).toHaveBeenCalledWith(currentNode);
   });
 
   test("should include style guides in context", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
     const styleGuides = [
       "Use formal language",
       "Maintain technical terminology",
@@ -232,7 +171,6 @@ describe("buildTranslatePrompt", () => {
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -247,14 +185,11 @@ describe("buildTranslatePrompt", () => {
   });
 
   test("should include exemplar nodes in context", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
     const exemplarNodes = [
       createMockTreeNode(
         "/examples/good.md",
@@ -271,7 +206,6 @@ describe("buildTranslatePrompt", () => {
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -286,19 +220,15 @@ describe("buildTranslatePrompt", () => {
   });
 
   test("should handle transform function correctly", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -320,19 +250,15 @@ Ceci est du contenu de test.`);
   });
 
   test("should throw error when transform receives wrong file path", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -355,19 +281,15 @@ Ceci est du contenu de test.`);
       name: "Español (Estados Unidos)",
     };
 
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       spanishLanguage,
@@ -402,20 +324,12 @@ console.log(example);
 bash command example
 :::`;
 
-    const currentNode = createMockTreeNode(
-      "/content/complex.md",
-      complexContent,
-    );
-    const sourceContent = createMockLanguageContent(
-      complexContent,
-      "complex-hash",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd("/content/complex.md", complexContent);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,
@@ -425,24 +339,20 @@ bash command example
     );
 
     expect(result.sampleOutput).toBe(complexContent);
-    expect(result.prompt).toContain("complex-hash");
+    expect(result.prompt).toContain("5fd2e593a354710152429d6194589eff");
     expect(result.prefill).toBe('<file path="/content/complex.md">');
   });
 
   test("should handle empty style guides and exemplars", () => {
-    const currentNode = createMockTreeNode(
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
-    const sourceContent = createMockLanguageContent(
-      "# Test Content\nThis is test content.",
-    );
-    const tree = createMockMarkdownTree([currentNode]);
 
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      sourceContent,
       undefined,
       mockSourceLanguage,
       mockTargetLanguage,

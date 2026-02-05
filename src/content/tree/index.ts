@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
-export * from "./providers/index.js";
-export * from "./tree/index.js";
-export * from "./utils/index.js";
+/**
+ * @fileoverview Tree data structures and implementations.
+ *
+ * Re-exports all tree-related interfaces and classes.
+ */
+
+export * from "./ContentNode.js";
+export * from "./ContentTree.js";

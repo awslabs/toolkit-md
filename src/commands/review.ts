@@ -28,7 +28,6 @@ import {
   CONFIG_REVIEW_SUMMARY_PATH,
   ConfigManager,
 } from "../config/index.js";
-import { MarkdownTree } from "../content/index.js";
 import type { LogWriter } from "./logger.js";
 import { logo } from "./logo.js";
 import {
@@ -87,9 +86,14 @@ async function executeAction(
 
   const contextStrategy = utils.getContextStrategy(config);
 
-  const exemplars = utils.getExemplars(cwd, defaultLanguage, config);
+  const exemplars = await utils.getExemplars(
+    cwd,
+    defaultLanguage,
+    language,
+    config,
+  );
 
-  const styleGuides = utils.getStyleGuides(
+  const styleGuides = await utils.getStyleGuides(
     cwd,
     config,
     defaultLanguage,
@@ -103,15 +107,15 @@ async function executeAction(
 
   console.log("\n");
 
-  const contentDir = utils.getContentDir(config);
+  const contentDir = utils.getContentDirWithTarget(config, content);
 
-  const tree = new MarkdownTree(
-    contentDir || content,
-    defaultLanguage.code,
-    cwd,
+  const tree = await utils.buildContentTree(
+    contentDir,
+    defaultLanguage,
+    language,
   );
 
-  const nodes = tree.getFlattenedTree(contentDir ? content : undefined);
+  const nodes = tree.getFlattenedTree();
 
   const client = new DefaultBedrockClient(
     model,
@@ -124,9 +128,7 @@ async function executeAction(
   const diffs: FileDiff[] = [];
 
   for (const node of nodes) {
-    const languageContent = node.languages.get(language.code);
-
-    if (languageContent) {
+    if (node.content) {
       const prompt = buildReviewPrompt(
         tree,
         node,
@@ -138,33 +140,27 @@ async function executeAction(
       );
 
       const { response } = await utils.withSpinner(
-        `Processing ${utils.printRelativePath(languageContent.path, cwd)}`,
+        `Processing ${node.filePath}`,
         async () => {
           return { response: await client.generate(prompt) };
         },
       );
 
       diffs.push({
-        path: languageContent.path,
+        path: node.filePath || node.path,
         diff: createPatch(
-          languageContent.path,
-          languageContent.content,
+          node.filePath || node.path,
+          node.content,
           response.output,
         ),
       });
 
       if (write) {
-        const { languageContent } = tree.addOrUpdateContent(
-          node.path,
-          response.output,
-          language.code,
-        );
+        await tree.updateContent(node, response.output);
 
-        console.log(
-          `📜 Wrote to file ${utils.printRelativePath(languageContent.path, cwd)}`,
-        );
+        console.log(`📜 Wrote to file ${node.filePath}`);
       } else {
-        utils.displayDiff(languageContent.content, response.output);
+        utils.displayDiff(node.content, response.output);
       }
 
       console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);

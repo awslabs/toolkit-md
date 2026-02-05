@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { MarkdownTree, TreeNode } from "../../content/index.js";
+import type { ContentNode, ContentTree } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
 import type { Exemplar, Prompt } from "./types.js";
@@ -37,8 +37,8 @@ Write the output as markdown in a similar style to the example content. Respond 
 ONLY respond with the content between the "<file></file>" tags.`;
 
 export function buildReviewPrompt(
-  tree: MarkdownTree,
-  currentNode: TreeNode,
+  tree: ContentTree,
+  currentNode: ContentNode,
   language: Language,
   contextStrategy: ContextStrategy,
   styleGuides: string[],
@@ -59,15 +59,15 @@ export function buildReviewPrompt(
   return {
     context,
     prompt: promptTemplate({
-      file: currentNode.path,
+      file: currentNode.filePath,
       instructions,
     }),
-    sampleOutput: currentNode.languages.get(language.code)?.content,
-    prefill: `<file path="${currentNode.path}">`,
+    sampleOutput: currentNode.content || undefined,
+    prefill: `<file path="${currentNode.filePath}">`,
     transform: (input) => {
       const fileSection = extractFileSection(input);
 
-      if (fileSection.path !== currentNode.path) {
+      if (fileSection.path !== currentNode.filePath) {
         throw new Error(`Unexpected file path in output: ${fileSection.path}`);
       }
 
