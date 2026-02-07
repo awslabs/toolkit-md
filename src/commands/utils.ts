@@ -270,9 +270,7 @@ export async function getStyleGuides(
 
           for (const contentFile of contentFiles) {
             if (contentFile.filePath && contentFile.content) {
-              logger.message(
-                `  -> ${printRelativePath(contentFile.filePath, resolvedPath)}`,
-              );
+              logger.message(`  -> ${contentFile.filePath}`);
 
               styleGuideFiles.push(contentFile.content);
             }
