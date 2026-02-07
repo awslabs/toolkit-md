@@ -19,6 +19,8 @@ import {
   type CachePointType,
   type ConversationRole,
   ConverseCommand,
+  CountTokensCommand,
+  type Message,
 } from "@aws-sdk/client-bedrock-runtime";
 import type { Prompt } from "../prompts/index.js";
 import {
@@ -27,7 +29,7 @@ import {
   SlidingLogRateLimiter,
 } from "./rateLimiting/index.js";
 import type { BedrockClient, BedrockClientGenerateResponse } from "./types.js";
-import { estimateTokens, TokenUsageCounter } from "./utils.js";
+import { TokenUsageCounter } from "./utils.js";
 
 /**
  * Default implementation of the BedrockClient interface that provides AI text generation
@@ -184,12 +186,16 @@ export class DefaultBedrockClient implements BedrockClient {
           : []),
       ];
 
-      const estimatedTokens = estimateTokens(
+      const estimatedTokens = await this.estimateTokens(
+        conversation,
+        prompt.sampleOutput,
+      );
+      /*const estimatedTokens = estimateTokens(
         promptContext ?? "",
         promptText,
         prefill,
         prompt.sampleOutput ?? "",
-      );
+      );*/
 
       tokenUsageCounter.addEstimated(estimatedTokens);
 
@@ -240,6 +246,38 @@ export class DefaultBedrockClient implements BedrockClient {
         usage: tokenUsageCounter.get(),
       };
     }
+  }
+
+  private async estimateTokens(
+    messages: Message[],
+    sampleOutput: string | undefined,
+  ) {
+    const finalMessages = [...messages];
+
+    if (sampleOutput) {
+      if (messages[messages.length - 1].role === "assistant") {
+        finalMessages.push({
+          role: "user",
+          content: [{ text: "-" }],
+        });
+      }
+
+      finalMessages.push({
+        role: "assistant",
+        content: [{ text: sampleOutput.trim() }],
+      });
+    }
+
+    const command = new CountTokensCommand({
+      modelId: "anthropic.claude-sonnet-4-20250514-v1:0",
+      input: {
+        converse: { messages: finalMessages },
+      },
+    });
+
+    const responseObject = await this.client.send(command);
+
+    return responseObject.inputTokens ?? 0;
   }
 
   /**

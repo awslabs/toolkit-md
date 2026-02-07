@@ -2,6 +2,7 @@ import {
   BedrockRuntimeClient,
   type ConversationRole,
   ConverseCommand,
+  CountTokensCommand,
   type Message,
   type StopReason,
   type TokenUsage,
@@ -64,6 +65,7 @@ const expectCommandCall = (
 describe("DefaultBedrockClient", () => {
   beforeEach(() => {
     bedrockClientMock.reset();
+    bedrockClientMock.on(CountTokensCommand).resolves({ inputTokens: 0 });
   });
 
   afterEach(() => {

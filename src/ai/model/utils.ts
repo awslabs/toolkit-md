@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { get_encoding } from "tiktoken";
 import type { TokenUsage } from "./types.js";
 
 export class TokenUsageCounter {
@@ -65,16 +64,4 @@ export class TokenUsageCounter {
       estimatedTokens: this.sumEstimatedTokens,
     };
   }
-}
-
-export function estimateTokens(...chunks: string[]) {
-  const enc = get_encoding("gpt2");
-
-  let total = 0;
-
-  for (const chunk of chunks) {
-    total += enc.encode(chunk).length;
-  }
-
-  return total;
 }

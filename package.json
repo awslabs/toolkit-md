@@ -30,7 +30,7 @@
   "keywords": [],
   "author": "",
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.785.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.985.0",
     "@modelcontextprotocol/sdk": "^1.18.2",
     "chalk": "^5.3.0",
     "commander": "^14.0.0",
@@ -39,7 +39,6 @@
     "gray-matter": "^4.0.3",
     "handlebars": "^4.7.8",
     "ora": "^8.0.1",
-    "tiktoken": "^1.0.20",
     "yaml": "^2.8.0",
     "zod": "^3.25.75"
   },
