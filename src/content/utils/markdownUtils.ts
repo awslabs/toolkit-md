@@ -142,3 +142,4 @@ export function generateHash(text: string): string {
  * has changed and translations need to be updated.
  */
 export const TRANSLATION_SRC_HASH_KEY = "tmdTranslationSourceHash";
+export const LEGACY_TRANSLATION_SRC_HASH_KEY = "wsmSourceHash";

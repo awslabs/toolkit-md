@@ -26,6 +26,7 @@ import {
 } from "../config/index.js";
 import {
   type ContentNode,
+  LEGACY_TRANSLATION_SRC_HASH_KEY,
   TRANSLATION_SRC_HASH_KEY,
 } from "../content/index.js";
 import { Language } from "../languages/index.js";
@@ -164,14 +165,22 @@ async function executeAction(
     removeTargetNode(node, initialTargetNodes);
 
     if (node.content) {
-      // Find corresponding node in target tree
+      // Find corresponding node inß target tree
       const targetNode = targetTree.getNode(node.path);
       const existingTranslation = targetNode?.content;
 
       if (!forceTranslation && existingTranslation && targetNode?.frontmatter) {
-        const existingTranslationHash = targetNode.frontmatter[
-          TRANSLATION_SRC_HASH_KEY
-        ] as string | undefined;
+        let existingTranslationHash: string | undefined;
+
+        if (TRANSLATION_SRC_HASH_KEY in targetNode.frontmatter) {
+          existingTranslationHash = targetNode.frontmatter[
+            TRANSLATION_SRC_HASH_KEY
+          ] as string;
+        } else if (LEGACY_TRANSLATION_SRC_HASH_KEY in targetNode.frontmatter) {
+          existingTranslationHash = targetNode.frontmatter[
+            LEGACY_TRANSLATION_SRC_HASH_KEY
+          ] as string;
+        }
 
         if (existingTranslationHash) {
           if (existingTranslationHash === node.hash) {

@@ -18,6 +18,7 @@ import Handlebars from "handlebars";
 import {
   type ContentNode,
   type ContentTree,
+  LEGACY_TRANSLATION_SRC_HASH_KEY,
   TRANSLATION_SRC_HASH_KEY,
 } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
@@ -34,6 +35,7 @@ const template = `Your task is to translate the content provided for file "{{cur
 DO NOT make any changes not related to translating the content
 ALWAYS return the entire translated file, do not abbreviate it
 ALWAYS add or update the Markdown frontmatter with a key '${TRANSLATION_SRC_HASH_KEY}' with value '{{sourceHash}}'
+ALWAYS remove the Markdown frontmatter with key '${LEGACY_TRANSLATION_SRC_HASH_KEY}' as this is deprecated
 
 Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in "<file></file>" tags including the path to the file as an attribute
 
