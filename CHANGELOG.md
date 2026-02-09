@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.6](https://github.com/awslabs/toolkit-md/compare/v0.1.5...v0.1.6) (2026-02-09)
+
+
+### Features
+
+* Bump default model to Sonnet 4.5 ([1dbd600](https://github.com/awslabs/toolkit-md/commit/1dbd600d7b973d20f0582e9676265bf1117ee897))
+* Initial MCP server implementation ([#11](https://github.com/awslabs/toolkit-md/issues/11)) ([81b5962](https://github.com/awslabs/toolkit-md/commit/81b5962fabb3136d038636c4c6be089f610d4d73))
+* Replace token estimation with Bedrock API ([81dc2c9](https://github.com/awslabs/toolkit-md/commit/81dc2c93d0372bbb696732e3c217127a13134dc4))
+* Support generating translations to separate directory ([#14](https://github.com/awslabs/toolkit-md/issues/14)) ([dd76934](https://github.com/awslabs/toolkit-md/commit/dd76934d0317c9c1ec0460c5f4777b7b70d228b0))
+
+
+### Bug Fixes
+
+* Handle legacy source hash attribute ([1c8f843](https://github.com/awslabs/toolkit-md/commit/1c8f843bd29a8cc20c3b23771e7652358fcd2d6f))
+* Show correct style guide path ([a044e01](https://github.com/awslabs/toolkit-md/commit/a044e015a9b8f3ea3bac1c45ca5ea7343486618c))
+
 ## [0.1.5](https://github.com/awslabs/toolkit-md/compare/v0.1.4...v0.1.5) (2025-08-01)
 
 
