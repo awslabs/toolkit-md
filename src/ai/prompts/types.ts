@@ -54,6 +54,12 @@ export interface Prompt {
    * @returns The transformed response string
    */
   transform?: (input: string) => string;
+
+  /**
+   * Optional array of images to include in the prompt.
+   * Images are provided as byte arrays with their format.
+   */
+  images?: Array<{ bytes: Uint8Array; format: string }>;
 }
 
 export interface Exemplar {

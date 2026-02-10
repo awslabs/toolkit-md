@@ -47,6 +47,12 @@ Provide some additional instructions:
 toolkit-md review --write ./docs --instructions 'Add more detailed explanations to the introduction page'
 ```
 
+Include images from Markdown files in the review (WARNING: can result in significantly higher token usage):
+
+```bash
+toolkit-md review --write ./docs --include-images
+```
+
 ### Translate Content
 
 Translate all Markdown content in a directory to French:
@@ -86,6 +92,10 @@ Toolkit for Markdown supports configuration through:
 | `ai.contextStrategy`            | `--context-strategy` | `TKMD_AI_CONTEXT_STRATEGY`             | Context inclusion: "siblings", "nothing", "everything"                                       | `"nothing"`                                          |
 | `ai.exemplars`                  | `--exemplar`         | `TKMD_AI_EXEMPLAR_*`                   | Path to directory of content to use as an example to follow, can be specified multiple times | `[]`                                                 |
 | `ai.styleGuides`                | `--style-guide`      | `TKMD_AI_STYLE_GUIDE_*`                | Path to style guide file, can be specified multiple times                                    | `[]`                                                 |
+| `ai.includeImages`              | `--include-images`   | `TKMD_AI_INCLUDE_IMAGES`               | Include images from markdown files in AI review                                              | `false`                                              |
+| `ai.imageBasePath`              | `--image-base-path`  | `TKMD_AI_IMAGE_BASE_PATH`              | Base path for resolving absolute image paths                                                 | `contentDir`                                         |
+| `ai.maxImages`                  | `--max-images`       | `TKMD_AI_MAX_IMAGES`                   | Maximum number of images to include per file                                                 | `5`                                                  |
+| `ai.maxImageSize`               | `--max-image-size`   | `TKMD_AI_MAX_IMAGE_SIZE`               | Maximum image file size in bytes                                                             | `3145728` (3MB)                                      |
 | `ai.review.instructions`        | `--instructions`     | `TKMD_AI_REVIEW_INSTRUCTIONS`          | Additional instructions for the model                                                        | `undefined`                                          |
 | `ai.review.summaryFile`         | `--summary-file`     | `TKMD_AI_REVIEW_SUMMARY_PATH`          | Write a summary of the review changes to the provided file path in Markdown format           | `""`                                                 |
 | `ai.translation.force`          | `--force`            | `TKMD_AI_FORCE_TRANSLATION`            | Force translation even if source unchanged                                                   | `false`                                              |
@@ -115,6 +125,10 @@ Create a `.toolkit-mdrc` file in JSON format:
     "contextStrategy": "siblings",
     "exemplars": ["./examples/good-example1", "./examples/good-example2"],
     "styleGuides": ["./guides/style-guide.md", "./guides/aws-terminology.md"],
+    "includeImages": true,
+    "imageBasePath": "./assets",
+    "maxImages": 5,
+    "maxImageSize": 3145728,
     "translation": {
       "force": false,
       "check": false
@@ -267,6 +281,30 @@ docs/
 
 **Recommendation:** Use `"siblings"` for most cases as it provides good context while keeping token usage reasonable. Use `"everything"` for small documentation sets where full context is valuable, and `"nothing"` for independent files or when minimizing token usage.
 
+### Image Processing
+
+The review command can extract and include images referenced in markdown files for AI analysis. This enables comprehensive content reviews that consider both textual and visual elements.
+
+**Image Path Resolution:**
+
+- **Relative paths** (e.g., `./images/diagram.png`, `../assets/photo.jpg`) are resolved from the markdown file's directory
+- **Absolute paths** (e.g., `/images/diagram.png`) are resolved from the `imageBasePath` configuration (defaults to `contentDir`, resolved from current working directory)
+- **Remote URLs** (e.g., `https://example.com/image.png`) are excluded from processing
+
+**Image Limits:**
+
+- Maximum images per file: configurable via `ai.maxImages` (default: 5)
+- Maximum image size: configurable via `ai.maxImageSize` (default: 3MB)
+- Supported formats: PNG, JPEG, GIF, WebP
+
+**Example:**
+
+```bash
+toolkit-md review ./docs --include-images --max-images 10 --image-base-path ./assets
+```
+
+Images that cannot be loaded (missing files, unsupported formats, or exceeding size limits) will generate warnings but won't stop the review process.
+
 ### AWS Bedrock Setup
 
 Toolkit for Markdown uses AWS Bedrock for AI processing. Ensure the following is available:
@@ -301,6 +339,10 @@ toolkit-md review ./docs --write --style-guide ./guides/style.md --context-strat
 - `--style-guide`
 - `--summary-file`
 - `--instructions`
+- `--include-images`
+- `--image-base-path`
+- `--max-images`
+- `--max-image-size`
 
 ### `translate`
 

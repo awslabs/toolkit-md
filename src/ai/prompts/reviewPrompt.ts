@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+import { dirname } from "node:path";
 import Handlebars from "handlebars";
 import type { ContentNode, ContentTree } from "../../content/index.js";
+import {
+  extractImagePaths,
+  loadImage,
+} from "../../content/utils/markdownUtils.js";
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
 import type { Exemplar, Prompt } from "./types.js";
@@ -27,6 +32,10 @@ import {
 
 const template = `Your task is to review the content provided for file "{{file}}" and update it to improve it in terms of style, grammar and syntax.
 
+{{#if includeImages}}
+The images for the file to review have been included as attachments. Ensure that the descriptions of the images in the Markdown match the contents of each image.
+{{/if}}
+
 {{#if instructions}}
 In additional you've been provided the following additional instructions:
 {{{instructions}}}
@@ -36,15 +45,19 @@ Write the output as markdown in a similar style to the example content. Respond 
 
 ONLY respond with the content between the "<file></file>" tags.`;
 
-export function buildReviewPrompt(
+export async function buildReviewPrompt(
   tree: ContentTree,
   currentNode: ContentNode,
   language: Language,
   contextStrategy: ContextStrategy,
   styleGuides: string[],
   exemplars: Exemplar[],
+  imageBasePath: string,
   instructions?: string,
-): Prompt {
+  includeImages: boolean = false,
+  maxImages: number = 5,
+  maxImageSize: number = 3145728,
+): Promise<Prompt> {
   const promptTemplate = Handlebars.compile(template);
 
   const contextNodes = getContext(tree, currentNode, contextStrategy);
@@ -56,11 +69,12 @@ export function buildReviewPrompt(
     exemplars,
   );
 
-  return {
+  const prompt: Prompt = {
     context,
     prompt: promptTemplate({
       file: currentNode.filePath,
       instructions,
+      includeImages,
     }),
     sampleOutput: currentNode.content || undefined,
     prefill: `<file path="${currentNode.filePath}">`,
@@ -74,4 +88,25 @@ export function buildReviewPrompt(
       return fileSection.content;
     },
   };
+
+  if (includeImages && currentNode.content) {
+    const imagePaths = extractImagePaths(currentNode.content);
+    const baseDir = dirname(currentNode.filePath);
+
+    const results = await Promise.all(
+      imagePaths
+        .slice(0, maxImages)
+        .map((path) => loadImage(path, baseDir, imageBasePath, maxImageSize)),
+    );
+
+    const images = results.filter(
+      (r): r is { bytes: Uint8Array; format: string } => r !== null,
+    );
+
+    if (images.length > 0) {
+      prompt.images = images;
+    }
+  }
+
+  return prompt;
 }

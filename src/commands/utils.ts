@@ -70,6 +70,26 @@ export function getContentDir(config: ConfigManager) {
   return path.resolve(path.join(config.getCwd(), contentDir));
 }
 
+export function getImageBasePath(config: ConfigManager) {
+  const imageBasePath = config.get<string | undefined>("ai.imageBasePath");
+
+  if (!imageBasePath) {
+    const contentDir = getContentDir(config);
+
+    if (!contentDir) {
+      return config.getCwd();
+    }
+
+    return contentDir;
+  }
+
+  if (path.isAbsolute(imageBasePath)) {
+    return imageBasePath;
+  }
+
+  return path.resolve(path.join(config.getCwd(), imageBasePath));
+}
+
 export function getContentDirWithTarget(config: ConfigManager, target: string) {
   let contentDir = config.get<string>("contentDir");
 

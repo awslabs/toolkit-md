@@ -24,6 +24,10 @@ import {
   type FileDiff,
 } from "../ai/index.js";
 import {
+  CONFIG_IMAGE_BASE_PATH,
+  CONFIG_INCLUDE_IMAGES,
+  CONFIG_MAX_IMAGE_SIZE,
+  CONFIG_MAX_IMAGES,
   CONFIG_REVIEW_INSTRUCTIONS,
   CONFIG_REVIEW_SUMMARY_PATH,
   ConfigManager,
@@ -57,6 +61,10 @@ export function createReviewCommand(): Command {
 
   utils.optionForConfigSchema(command, CONFIG_REVIEW_SUMMARY_PATH);
   utils.optionForConfigSchema(command, CONFIG_REVIEW_INSTRUCTIONS);
+  utils.optionForConfigSchema(command, CONFIG_INCLUDE_IMAGES);
+  utils.optionForConfigSchema(command, CONFIG_IMAGE_BASE_PATH);
+  utils.optionForConfigSchema(command, CONFIG_MAX_IMAGES);
+  utils.optionForConfigSchema(command, CONFIG_MAX_IMAGE_SIZE);
 
   return command;
 }
@@ -109,6 +117,11 @@ async function executeAction(
 
   const contentDir = utils.getContentDirWithTarget(config, content);
 
+  const includeImages = config.get<boolean>("ai.includeImages");
+  const imageBasePath = utils.getImageBasePath(config);
+  const maxImages = config.get<number>("ai.maxImages");
+  const maxImageSize = config.get<number>("ai.maxImageSize");
+
   const tree = await utils.buildContentTree(
     contentDir,
     defaultLanguage,
@@ -129,14 +142,18 @@ async function executeAction(
 
   for (const node of nodes) {
     if (node.content) {
-      const prompt = buildReviewPrompt(
+      const prompt = await buildReviewPrompt(
         tree,
         node,
         language,
         contextStrategy,
         styleGuides,
         exemplars,
+        imageBasePath,
         instructions,
+        includeImages,
+        maxImages,
+        maxImageSize,
       );
 
       const { response } = await utils.withSpinner(

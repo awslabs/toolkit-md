@@ -20,7 +20,9 @@
   "scripts": {
     "clean": "shx rm -rf node_modules",
     "build": "shx rm -rf dist && tsc -p tsconfig.build.json",
-    "lint:check": "eslint",
+    "lint:check": "biome lint",
+    "check": "biome lint .",
+    "check:fix": "biome lint --fix .",
     "start": "tsx src/cli.ts",
     "debug": "tsx --inspect src/cli.ts",
     "test": "vitest run",
