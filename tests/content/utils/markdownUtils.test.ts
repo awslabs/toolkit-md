@@ -15,7 +15,10 @@
  */
 
 import { describe, expect, test } from "vitest";
-import { parseMarkdownContent } from "../../../src/content/utils/markdownUtils.js";
+import {
+  extractImagePaths,
+  parseMarkdownContent,
+} from "../../../src/content/utils/markdownUtils.js";
 
 describe("Markdown Utils", () => {
   test("should parse markdown content", () => {
@@ -65,5 +68,58 @@ title: Content
 
     const parsed = parseMarkdownContent(content);
     expect(parsed.weight).toBe(999);
+  });
+});
+
+describe("extractImagePaths", () => {
+  test("should extract markdown image paths", () => {
+    const content = `# Guide
+![Alt text](./images/diagram.png)
+Some text
+![Another](../assets/photo.jpg)`;
+
+    const paths = extractImagePaths(content);
+    expect(paths).toEqual(["./images/diagram.png", "../assets/photo.jpg"]);
+  });
+
+  test("should extract HTML img src paths", () => {
+    const content = `<img src="./image.png" alt="test" />
+<img src="../other.jpg">`;
+
+    const paths = extractImagePaths(content);
+    expect(paths).toEqual(["./image.png", "../other.jpg"]);
+  });
+
+  test("should exclude HTTP/HTTPS URLs", () => {
+    const content = `![Remote](https://example.com/image.png)
+![Local](./local.png)
+<img src="http://example.com/other.jpg">`;
+
+    const paths = extractImagePaths(content);
+    expect(paths).toEqual(["./local.png"]);
+  });
+
+  test("should handle mixed markdown and HTML images", () => {
+    const content = `![MD](./md.png)
+<img src="./html.jpg">
+![URL](https://example.com/remote.png)`;
+
+    const paths = extractImagePaths(content);
+    expect(paths).toEqual(["./md.png", "./html.jpg"]);
+  });
+
+  test("should return unique paths", () => {
+    const content = `![One](./image.png)
+![Two](./image.png)
+<img src="./image.png">`;
+
+    const paths = extractImagePaths(content);
+    expect(paths).toEqual(["./image.png"]);
+  });
+
+  test("should return empty array when no images", () => {
+    const content = "# Just text\nNo images here.";
+    const paths = extractImagePaths(content);
+    expect(paths).toEqual([]);
   });
 });

@@ -20,6 +20,7 @@ import {
   type ConversationRole,
   ConverseCommand,
   CountTokensCommand,
+  type ImageFormat,
   type Message,
 } from "@aws-sdk/client-bedrock-runtime";
 import type { Prompt } from "../prompts/index.js";
@@ -174,6 +175,12 @@ export class DefaultBedrockClient implements BedrockClient {
             {
               text: promptText,
             },
+            ...(prompt.images || []).map((img) => ({
+              image: {
+                format: img.format as ImageFormat,
+                source: { bytes: img.bytes },
+              },
+            })),
           ],
         },
         ...(prefill

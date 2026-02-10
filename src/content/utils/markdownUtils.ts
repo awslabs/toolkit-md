@@ -22,6 +22,8 @@
  */
 
 import { createHash } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
+import { isAbsolute, join, resolve } from "node:path";
 import * as matter from "gray-matter";
 
 /**
@@ -143,3 +145,79 @@ export function generateHash(text: string): string {
  */
 export const TRANSLATION_SRC_HASH_KEY = "tmdTranslationSourceHash";
 export const LEGACY_TRANSLATION_SRC_HASH_KEY = "wsmSourceHash";
+
+export function extractImagePaths(content: string): string[] {
+  const paths = new Set<string>();
+  const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const htmlImageRegex = /<img[^>]+src=["']([^"']+)["']/g;
+
+  let match = markdownImageRegex.exec(content);
+  while (match !== null) {
+    const path = match[2].split(/\s+/)[0];
+    if (!path.startsWith("http://") && !path.startsWith("https://")) {
+      paths.add(path);
+    }
+    match = markdownImageRegex.exec(content);
+  }
+
+  match = htmlImageRegex.exec(content);
+  while (match !== null) {
+    const path = match[1];
+    if (!path.startsWith("http://") && !path.startsWith("https://")) {
+      paths.add(path);
+    }
+    match = htmlImageRegex.exec(content);
+  }
+
+  return Array.from(paths);
+}
+
+export async function loadImage(
+  imagePath: string,
+  baseDir: string,
+  imageBasePath: string,
+  maxSize: number,
+): Promise<{ bytes: Uint8Array; format: string } | null> {
+  let resolvedPath: string;
+
+  if (isAbsolute(imagePath)) {
+    if (!imageBasePath) {
+      console.warn(
+        `⚠️  No imageBasePath configured for absolute path: ${imagePath}`,
+      );
+      return null;
+    }
+    resolvedPath = join(imageBasePath, imagePath);
+  } else {
+    resolvedPath = resolve(baseDir, imagePath);
+  }
+
+  try {
+    const stats = await stat(resolvedPath);
+    if (stats.size > maxSize) {
+      console.warn(`⚠️  Image too large (${stats.size} bytes): ${imagePath}`);
+      return null;
+    }
+
+    const ext = resolvedPath.split(".").pop()?.toLowerCase();
+    const formatMap: Record<string, string> = {
+      png: "png",
+      jpg: "jpeg",
+      jpeg: "jpeg",
+      gif: "gif",
+      webp: "webp",
+    };
+
+    const format = ext ? formatMap[ext] : undefined;
+    if (!format) {
+      console.warn(`⚠️  Unsupported image format: ${imagePath}`);
+      return null;
+    }
+
+    const buffer = await readFile(resolvedPath);
+    return { bytes: new Uint8Array(buffer), format };
+  } catch (error) {
+    console.warn(`⚠️  Failed to load image: ${imagePath} - ${error}`);
+    return null;
+  }
+}

@@ -207,6 +207,48 @@ export const CONFIG_STYLE_GUIDES = withConfig(
   "TKMD_AI_STYLE_GUIDE",
 );
 
+export const CONFIG_INCLUDE_IMAGES = withConfig(
+  z
+    .boolean()
+    .describe("Include images from markdown files in AI review")
+    .default(false),
+  "includeImages",
+  "TKMD_AI_INCLUDE_IMAGES",
+);
+
+export const CONFIG_IMAGE_BASE_PATH = withConfig(
+  z
+    .string()
+    .describe("Base path for resolving absolute image paths")
+    .optional(),
+  "imageBasePath",
+  "TKMD_AI_IMAGE_BASE_PATH",
+);
+
+export const CONFIG_MAX_IMAGES = withConfig(
+  z
+    .union([
+      z.number().positive("Max images must be greater than 0"),
+      z.string().transform((val) => parseInt(val, 10)),
+    ])
+    .describe("Maximum number of images to include per file")
+    .default(5),
+  "maxImages",
+  "TKMD_AI_MAX_IMAGES",
+);
+
+export const CONFIG_MAX_IMAGE_SIZE = withConfig(
+  z
+    .union([
+      z.number().positive("Max image size must be greater than 0"),
+      z.string().transform((val) => parseInt(val, 10)),
+    ])
+    .describe("Maximum image file size in bytes")
+    .default(3145728),
+  "maxImageSize",
+  "TKMD_AI_MAX_IMAGE_SIZE",
+);
+
 // Define the configuration schema using Zod's native description functionality
 export const configSchema = z.object({
   contentDir: CONFIG_CONTENT_DIR,
@@ -223,6 +265,10 @@ export const configSchema = z.object({
     contextStrategy: CONFIG_CONTEXT_STRATEGY,
     exemplars: CONFIG_EXEMPLARS,
     styleGuides: CONFIG_STYLE_GUIDES,
+    includeImages: CONFIG_INCLUDE_IMAGES,
+    imageBasePath: CONFIG_IMAGE_BASE_PATH,
+    maxImages: CONFIG_MAX_IMAGES,
+    maxImageSize: CONFIG_MAX_IMAGE_SIZE,
     review: z.object({
       summaryPath: CONFIG_REVIEW_SUMMARY_PATH,
       instructions: CONFIG_REVIEW_INSTRUCTIONS,
