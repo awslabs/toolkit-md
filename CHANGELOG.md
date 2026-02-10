@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/awslabs/toolkit-md/compare/v0.1.6...v0.1.7) (2026-02-10)
+
+
+### Features
+
+* Review images in content ([#29](https://github.com/awslabs/toolkit-md/issues/29)) ([1cc25f5](https://github.com/awslabs/toolkit-md/commit/1cc25f59cbdf3467e2121770be578ca5e46def16))
+
 ## [0.1.6](https://github.com/awslabs/toolkit-md/compare/v0.1.5...v0.1.6) (2026-02-09)
 
 
