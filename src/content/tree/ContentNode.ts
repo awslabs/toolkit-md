@@ -53,4 +53,34 @@ export interface ContentNode {
   filePath: string;
   /** MD5 hash of the content for change detection (null for directories) */
   hash: string | null;
+  /** Image references extracted from the content (empty for directories) */
+  images: ImageReference[];
+  /** Fenced code blocks extracted from the content (empty for directories) */
+  codeBlocks: CodeBlockReference[];
+}
+
+/**
+ * Represents a local image reference found in markdown content.
+ */
+export interface ImageReference {
+  /** The relative or absolute path to the image file */
+  path: string;
+  /** The alt text for the image, if provided */
+  alt: string | null;
+  /** The 1-based line number where the image appears in the source file */
+  line: number;
+  /** Whether the image is a remote URL (http/https) */
+  remote: boolean;
+}
+
+/**
+ * Represents a fenced code block found in markdown content.
+ */
+export interface CodeBlockReference {
+  /** The language identifier from the code fence, if provided */
+  language: string | null;
+  /** The code content inside the block */
+  code: string;
+  /** The 1-based line number where the code block starts in the source file */
+  line: number;
 }

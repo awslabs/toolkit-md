@@ -118,6 +118,112 @@ describe("ContentTree", () => {
     expect(node?.weight).toBe(5);
   });
 
+  test("should extract image references from content", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const content = `# Guide
+![Alt text](./images/diagram.png)
+Some text
+![Another](../assets/photo.jpg)`;
+
+    const node = tree.add("/docs/guide.md", content);
+    expect(node?.images).toEqual([
+      { path: "./images/diagram.png", alt: "Alt text", line: 2, remote: false },
+      { path: "../assets/photo.jpg", alt: "Another", line: 4, remote: false },
+    ]);
+  });
+
+  test("should flag remote image URLs", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const content = `![Remote](https://example.com/image.png)
+![Local](./local.png)
+<img src="http://example.com/other.jpg">`;
+
+    const node = tree.add("/docs/guide.md", content);
+    expect(node?.images).toEqual([
+      { path: "https://example.com/image.png", alt: "Remote", line: 1, remote: true },
+      { path: "./local.png", alt: "Local", line: 2, remote: false },
+      { path: "http://example.com/other.jpg", alt: null, line: 3, remote: true },
+    ]);
+  });
+
+  test("should return empty images array for content without images", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const node = tree.add("/docs/guide.md", "# Just text\nNo images here.");
+    expect(node?.images).toEqual([]);
+  });
+
+  test("should return empty images array for directory nodes", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add("/docs/guide.md", "# Guide");
+    const docsNode = tree.getNode("/docs");
+    expect(docsNode?.images).toEqual([]);
+  });
+
+  test("should update images when content is updated", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const node = tree.add("/docs/guide.md", "![Old](./old.png)");
+    expect(node?.images).toEqual([{ path: "./old.png", alt: "Old", line: 1, remote: false }]);
+
+    // biome-ignore lint/style/noNonNullAssertion: TODO handle better
+    await tree.updateContent(node!, "![New](./new.png)\n![Another](./another.jpg)");
+    expect(node?.images).toEqual([
+      { path: "./new.png", alt: "New", line: 1, remote: false },
+      { path: "./another.jpg", alt: "Another", line: 2, remote: false },
+    ]);
+  });
+
+  test("should extract code blocks from content", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const content = "# Guide\n\n```typescript\nconst x = 1;\n```\n\nSome text\n\n```python\nprint(\"hello\")\n```";
+
+    const node = tree.add("/docs/guide.md", content);
+    expect(node?.codeBlocks).toEqual([
+      { language: "typescript", code: "const x = 1;", line: 3 },
+      { language: "python", code: 'print("hello")', line: 9 },
+    ]);
+  });
+
+  test("should return empty codeBlocks array for content without code blocks", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const node = tree.add("/docs/guide.md", "# Just text\nNo code here.");
+    expect(node?.codeBlocks).toEqual([]);
+  });
+
+  test("should return empty codeBlocks array for directory nodes", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add("/docs/guide.md", "# Guide");
+    const docsNode = tree.getNode("/docs");
+    expect(docsNode?.codeBlocks).toEqual([]);
+  });
+
+  test("should update codeBlocks when content is updated", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const node = tree.add("/docs/guide.md", "```js\nold()\n```");
+    expect(node?.codeBlocks).toEqual([{ language: "js", code: "old()", line: 1 }]);
+
+    // biome-ignore lint/style/noNonNullAssertion: TODO handle better
+    await tree.updateContent(node!, "```ts\nnewCode()\n```");
+    expect(node?.codeBlocks).toEqual([{ language: "ts", code: "newCode()", line: 1 }]);
+  });
+
   test("should return flattened tree in weight order", () => {
     const provider = new MockProvider();
     const tree = new ContentTree(provider);
@@ -174,6 +280,105 @@ describe("ContentTree", () => {
     expect(docsFlattened.every((node) => !node.isDirectory)).toBe(true);
     expect(docsFlattened[0].name).toBe("tutorial"); // weight 5 comes first
     expect(docsFlattened[1].name).toBe("guide"); // weight 10 comes second
+  });
+
+  test("should use h1 heading as title when frontmatter title is missing", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const node = tree.add("/docs/guide.md", "# My Guide\nSome content");
+    expect(node?.frontmatter.title).toBe("My Guide");
+  });
+
+  test("should prefer frontmatter title over h1 heading", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const node = tree.add("/docs/guide.md", "---\ntitle: FM Title\n---\n# Heading Title");
+    expect(node?.frontmatter.title).toBe("FM Title");
+  });
+
+  test("should update title fallback when content is updated", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const node = tree.add("/docs/guide.md", "# Old Title");
+    expect(node?.frontmatter.title).toBe("Old Title");
+
+    // biome-ignore lint/style/noNonNullAssertion: TODO handle better
+    await tree.updateContent(node!, "# New Title");
+    expect(node?.frontmatter.title).toBe("New Title");
+  });
+
+  test("should extract image directive references from content", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    const content = `# Guide
+::image[A fun illustration]{src="/static/img/illus.png"}
+![Standard](./standard.png)`;
+
+    const node = tree.add("/docs/guide.md", content);
+    expect(node?.images).toEqual([
+      { path: "/static/img/illus.png", alt: "A fun illustration", line: 2, remote: false },
+      { path: "./standard.png", alt: "Standard", line: 3, remote: false },
+    ]);
+  });
+
+  test("should not include images in getTreeMap by default", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![Diagram](./images/diagram.png)");
+
+    const treeMap = tree.getTreeMap();
+    expect(treeMap).toContain("guide.md");
+    expect(treeMap).not.toContain("./images/diagram.png");
+  });
+
+  test("should include images in getTreeMap when enabled", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![Diagram](./images/diagram.png)\n![Photo](./assets/photo.jpg)");
+
+    const treeMap = tree.getTreeMap(true);
+    expect(treeMap).toContain("guide.md");
+    expect(treeMap).toContain("[image] ./images/diagram.png");
+    expect(treeMap).toContain("[image] ./assets/photo.jpg");
+  });
+
+  test("should render image tree connectors correctly for single image", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![Diagram](./diagram.png)");
+
+    const treeMap = tree.getTreeMap(true);
+    expect(treeMap).toContain("└── [image] ./diagram.png");
+  });
+
+  test("should render image tree connectors correctly for multiple images", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![A](./a.png)\n![B](./b.png)");
+
+    const treeMap = tree.getTreeMap(true);
+    expect(treeMap).toContain("├── [image] ./a.png");
+    expect(treeMap).toContain("└── [image] ./b.png");
+  });
+
+  test("should not render image lines for nodes without images when enabled", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n# No images here");
+
+    const treeMap = tree.getTreeMap(true);
+    expect(treeMap).toContain("guide.md");
+    expect(treeMap).not.toContain("├── ./");
+    expect(treeMap).not.toContain("└── ./");
   });
 
   describe("Integration Tests", () => {

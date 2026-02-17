@@ -22,3 +22,4 @@
 
 export * from "./languageUtils.js";
 export * from "./markdownUtils.js";
+export * from "./diffUtils.js";

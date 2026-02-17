@@ -77,11 +77,13 @@ export function buildTranslationAgentPrompt(
     sourceTree,
     sourceContentDirectory,
     sourceLanguage,
+    false,
   );
   const targetContentMap = buildContentMapPrompt(
     targetTree,
     targetContentDirectory,
     targetLanguage,
+    false,
   );
 
   const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);

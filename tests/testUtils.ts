@@ -55,6 +55,8 @@ export function createMockTreeNode(
     frontmatter: {},
     filePath: path,
     hash,
+    images: [],
+    codeBlocks: [],
   };
 }
 
@@ -86,6 +88,8 @@ export function createMockEmptyTreeNode(path: string): ContentNode {
     frontmatter: {},
     filePath: "",
     hash: null,
+    images: [],
+    codeBlocks: [],
   };
 }
 

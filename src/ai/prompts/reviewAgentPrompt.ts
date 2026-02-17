@@ -68,7 +68,7 @@ export function buildReviewAgentPrompt(
 ): Prompt {
   const promptTemplate = Handlebars.compile(template);
 
-  const contentMap = buildContentMapPrompt(tree, contentDirectory, language);
+  const contentMap = buildContentMapPrompt(tree, contentDirectory, language, false);
 
   const styleGuidePrompt = buildStyleGuidePrompt(styleGuides);
 

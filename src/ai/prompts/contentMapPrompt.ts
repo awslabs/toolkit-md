@@ -35,12 +35,13 @@ export function buildContentMapPrompt(
   tree: ContentTree,
   contentDir: string,
   language: Language,
+  includeImages: boolean,
 ) {
   const promptTemplate = Handlebars.compile(template);
 
   return promptTemplate({
     rootDir: contentDir,
-    contentMap: tree.getTreeMap(),
+    contentMap: tree.getTreeMap(includeImages),
     language,
   }).trim();
 }

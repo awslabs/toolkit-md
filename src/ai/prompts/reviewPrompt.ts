@@ -17,10 +17,7 @@
 import { dirname } from "node:path";
 import Handlebars from "handlebars";
 import type { ContentNode, ContentTree } from "../../content/index.js";
-import {
-  extractImagePaths,
-  loadImage,
-} from "../../content/utils/markdownUtils.js";
+import { loadImage } from "../../content/utils/markdownUtils.js";
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
 import type { Exemplar, Prompt } from "./types.js";
@@ -90,13 +87,13 @@ export async function buildReviewPrompt(
   };
 
   if (includeImages && currentNode.content) {
-    const imagePaths = extractImagePaths(currentNode.content);
     const baseDir = dirname(currentNode.filePath);
 
     const results = await Promise.all(
-      imagePaths
+      currentNode.images
+        .filter((img) => !img.remote)
         .slice(0, maxImages)
-        .map((path) => loadImage(path, baseDir, imageBasePath, maxImageSize)),
+        .map((img) => loadImage(img.path, baseDir, imageBasePath, maxImageSize)),
     );
 
     const images = results.filter(

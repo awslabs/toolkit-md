@@ -185,6 +185,36 @@ describe("ZodConfigManager", () => {
       expect(configManager.get("ai.model")).toBe("env-value");
     });
 
+    it("should load diff file configuration from CLI", async () => {
+      await configManager.initialize({
+        diffFile: "/path/to/changes.diff",
+        diffContext: 5,
+      });
+
+      expect(configManager.get("ai.review.diffFile")).toBe(
+        "/path/to/changes.diff",
+      );
+      expect(configManager.get("ai.review.diffContext")).toBe(5);
+    });
+
+    it("should load diff file configuration from environment", async () => {
+      process.env.TKMD_AI_REVIEW_DIFF_FILE = "/env/path/to/changes.diff";
+      process.env.TKMD_AI_REVIEW_DIFF_CONTEXT = "7";
+
+      await configManager.initialize({});
+
+      expect(configManager.get("ai.review.diffFile")).toBe(
+        "/env/path/to/changes.diff",
+      );
+      expect(configManager.get("ai.review.diffContext")).toBe(7);
+    });
+
+    it("should use default diff context value of 3", async () => {
+      await configManager.initialize({});
+
+      expect(configManager.get("ai.review.diffContext")).toBe(3);
+    });
+
     it("should return config file value with low priority", async () => {
       // Set up mock file system with a config file
       mockFs({

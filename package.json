@@ -41,6 +41,10 @@
     "gray-matter": "^4.0.3",
     "handlebars": "^4.7.8",
     "ora": "^8.0.1",
+    "remark": "^15.0.1",
+    "remark-directive": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
     "yaml": "^2.8.0",
     "zod": "^3.25.75"
   },
