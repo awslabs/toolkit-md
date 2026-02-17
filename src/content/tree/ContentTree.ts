@@ -25,7 +25,10 @@
 import * as path from "node:path";
 import type { ContentProvider } from "../providers/ContentProvider.js";
 import { extractFileInfo, type FileInfo } from "../utils/languageUtils.js";
-import { parseMarkdownContent } from "../utils/markdownUtils.js";
+import {
+  extractMarkdownElements,
+  parseMarkdownContent,
+} from "../utils/markdownUtils.js";
 import type { ContentNode } from "./ContentNode.js";
 
 /**
@@ -102,6 +105,8 @@ export class ContentTree {
       language: null,
       filePath: "/",
       hash: null,
+      images: [],
+      codeBlocks: [],
     };
     this.nodeMap.set("", this.root);
   }
@@ -215,7 +220,12 @@ export class ContentTree {
     // Determine weight - index files get special treatment
     const weight = fileInfo.isIndexFile ? -1 : parsed.weight;
 
-    // Create the content node
+    const elements = extractMarkdownElements(content);
+
+    if (!parsed.frontmatter.title && elements.title) {
+      parsed.frontmatter.title = elements.title;
+    }
+
     const contentNode: ContentNode = {
       name: fileInfo.baseName,
       path: logicalPath,
@@ -228,6 +238,8 @@ export class ContentTree {
       language: fileInfo.language,
       filePath: fileInfo.filePath,
       hash: parsed.hash,
+      images: elements.images,
+      codeBlocks: elements.codeBlocks,
     };
 
     // Add to the appropriate parent directory
@@ -298,14 +310,16 @@ export class ContentTree {
       name: dirName,
       path: normalizedPath,
       isDirectory: true,
-      weight: 999, // Default weight for directories
+      weight: 999,
       children: [],
-      parent: null, // Will be set when added to parent
+      parent: null,
       content: null,
       frontmatter: {},
       language: null,
       filePath: normalizedPath,
       hash: null,
+      images: [],
+      codeBlocks: [],
     };
 
     // Add to parent
@@ -493,6 +507,13 @@ export class ContentTree {
     node.content = parsed.content;
     node.frontmatter = parsed.frontmatter;
     node.hash = parsed.hash;
+    const elements = extractMarkdownElements(newContent);
+    node.images = elements.images;
+    node.codeBlocks = elements.codeBlocks;
+
+    if (!node.frontmatter.title && elements.title) {
+      node.frontmatter.title = elements.title;
+    }
 
     // Update weight if it changed
     const newWeight = parsed.weight;
@@ -515,6 +536,7 @@ export class ContentTree {
    * of all nodes in the tree, with proper indentation and tree-drawing
    * characters. Only shows content files with their titles from frontmatter.
    *
+   * @param includeImages - Whether to include image paths under each content node
    * @returns String representation of the tree structure
    *
    * @example
@@ -526,10 +548,16 @@ export class ContentTree {
    * //     ├── guide.md (title: User Guide)
    * //     └── advanced
    * //         └── secrets.md (title: Managing Secrets)
+   *
+   * const treeMapWithImages = tree.getTreeMap(true);
+   * // Output:
+   * // └── docs
+   * //     └── guide.md (title: User Guide)
+   * //         └── ./images/diagram.png
    * ```
    */
-  public getTreeMap(): string {
-    return this.buildTreeMap(this.root, true);
+  public getTreeMap(includeImages = false): string {
+    return this.buildTreeMap(this.root, true, "", includeImages);
   }
 
   /**
@@ -549,12 +577,22 @@ export class ContentTree {
     node: ContentNode,
     isLast: boolean,
     indent: string = "",
+    includeImages = false,
   ): string {
     const prefix = `${indent}${isLast ? "└── " : "├── "}`;
 
     if (!node.isDirectory) {
       if (node.content) {
-        return `${prefix}${path.basename(node.filePath || "")} (title: ${node.frontmatter?.title || ""})\n`;
+        let line = `${prefix}${path.basename(node.filePath || "")} (title: ${node.frontmatter?.title || ""})\n`;
+        if (includeImages && node.images.length > 0) {
+          const imageIndent = `${indent}${isLast ? " " : "│"}   `;
+          for (let j = 0; j < node.images.length; j++) {
+            const img = node.images[j];
+            const isLastImage = j === node.images.length - 1;
+            line += `${imageIndent}${isLastImage ? "└── " : "├── "}[image] ${img.path}\n`;
+          }
+        }
+        return line;
       }
 
       return "";
@@ -569,7 +607,12 @@ export class ContentTree {
         const isLastChild = i === node.children.length - 1;
         const childIndent = `${indent}${isLast ? " " : "│"}   `;
 
-        output += this.buildTreeMap(child, isLastChild, childIndent);
+        output += this.buildTreeMap(
+          child,
+          isLastChild,
+          childIndent,
+          includeImages,
+        );
       }
 
       if (output.length > 0) {

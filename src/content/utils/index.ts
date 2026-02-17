@@ -20,5 +20,6 @@
  * Re-exports all utility functions for language detection and markdown parsing.
  */
 
+export * from "./diffUtils.js";
 export * from "./languageUtils.js";
 export * from "./markdownUtils.js";

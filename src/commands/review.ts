@@ -15,6 +15,7 @@
  */
 
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { Command } from "commander";
 import { createPatch } from "diff";
 import {
@@ -28,10 +29,17 @@ import {
   CONFIG_INCLUDE_IMAGES,
   CONFIG_MAX_IMAGE_SIZE,
   CONFIG_MAX_IMAGES,
+  CONFIG_REVIEW_DIFF_CONTEXT,
+  CONFIG_REVIEW_DIFF_FILE,
   CONFIG_REVIEW_INSTRUCTIONS,
   CONFIG_REVIEW_SUMMARY_PATH,
   ConfigManager,
 } from "../config/index.js";
+import {
+  filterDiffByChangedLines,
+  type ParsedDiff,
+  parseUnifiedDiff,
+} from "../content/utils/diffUtils.js";
 import type { LogWriter } from "./logger.js";
 import { logo } from "./logo.js";
 import {
@@ -61,6 +69,8 @@ export function createReviewCommand(): Command {
 
   utils.optionForConfigSchema(command, CONFIG_REVIEW_SUMMARY_PATH);
   utils.optionForConfigSchema(command, CONFIG_REVIEW_INSTRUCTIONS);
+  utils.optionForConfigSchema(command, CONFIG_REVIEW_DIFF_FILE);
+  utils.optionForConfigSchema(command, CONFIG_REVIEW_DIFF_CONTEXT);
   utils.optionForConfigSchema(command, CONFIG_INCLUDE_IMAGES);
   utils.optionForConfigSchema(command, CONFIG_IMAGE_BASE_PATH);
   utils.optionForConfigSchema(command, CONFIG_MAX_IMAGES);
@@ -113,6 +123,19 @@ async function executeAction(
 
   const instructions = config.get<string | undefined>("ai.review.instructions");
 
+  const diffFile = config.get<string | undefined>("ai.review.diffFile");
+  const diffContext = config.get<number>("ai.review.diffContext");
+
+  if (diffFile && write) {
+    throw new Error(
+      "Cannot use --write with --diff-file. Diff-based review is read-only for safety.",
+    );
+  }
+
+  if (diffFile && summaryPath.length === 0) {
+    throw new Error("Must provide --summary-file when using --diff-file.");
+  }
+
   console.log("\n");
 
   const contentDir = utils.getContentDirWithTarget(config, content);
@@ -130,6 +153,33 @@ async function executeAction(
 
   const nodes = tree.getFlattenedTree();
 
+  let parsedDiff: ParsedDiff | null = null;
+  if (diffFile) {
+    const diffContent = fs.readFileSync(
+      utils.buildPath(diffFile, cwd),
+      "utf-8",
+    );
+    parsedDiff = parseUnifiedDiff(
+      diffContent,
+      path.relative(config.getCwd(), contentDir),
+    );
+
+    const diffFiles = Object.keys(parsedDiff);
+    for (const diffFilePath of diffFiles) {
+      const normalizedDiffPath = path.normalize(diffFilePath);
+      const fileExists = nodes.some((node) => {
+        const nodePath = node.filePath || node.path;
+        return path.normalize(nodePath).endsWith(normalizedDiffPath);
+      });
+
+      if (!fileExists) {
+        throw new Error(
+          `File ${diffFilePath} from diff not found in content tree`,
+        );
+      }
+    }
+  }
+
   const client = new DefaultBedrockClient(
     model,
     maxTokens,
@@ -142,6 +192,20 @@ async function executeAction(
 
   for (const node of nodes) {
     if (node.content) {
+      const nodePath = node.filePath || node.path;
+
+      if (parsedDiff) {
+        const normalizedNodePath = path.normalize(nodePath);
+        const isInDiff = Object.keys(parsedDiff).some((diffFilePath) => {
+          const normalizedDiffPath = path.normalize(diffFilePath);
+          return normalizedNodePath.endsWith(normalizedDiffPath);
+        });
+
+        if (!isInDiff) {
+          continue;
+        }
+      }
+
       const prompt = await buildReviewPrompt(
         tree,
         node,
@@ -163,20 +227,36 @@ async function executeAction(
         },
       );
 
+      let aiDiff = createPatch(nodePath, node.content, response.output);
+
+      if (parsedDiff) {
+        const normalizedNodePath = path.normalize(nodePath);
+        const diffFilePath = Object.keys(parsedDiff).find((diffPath) => {
+          const normalizedDiffPath = path.normalize(diffPath);
+          return normalizedNodePath.endsWith(normalizedDiffPath);
+        });
+
+        if (diffFilePath) {
+          const changedRanges = parsedDiff[diffFilePath];
+          aiDiff = filterDiffByChangedLines(aiDiff, changedRanges, diffContext);
+
+          if (aiDiff === "") {
+            console.log(`⏭️  Skipped ${nodePath} (no relevant suggestions)\n`);
+            continue;
+          }
+        }
+      }
+
       diffs.push({
-        path: node.filePath || node.path,
-        diff: createPatch(
-          node.filePath || node.path,
-          node.content,
-          response.output,
-        ),
+        path: nodePath,
+        diff: aiDiff,
       });
 
       if (write) {
         await tree.updateContent(node, response.output);
 
         console.log(`📜 Wrote to file ${node.filePath}`);
-      } else {
+      } else if (!parsedDiff) {
         utils.displayDiff(node.content, response.output);
       }
 
@@ -190,9 +270,15 @@ async function executeAction(
     await utils.withSpinner(`Writing summary to ${summaryPath}`, async () => {
       const response = await client.generate(summaryPrompt);
 
+      let summaryContent = response.output;
+
+      if (parsedDiff) {
+        summaryContent = `> **Note:** This summary was generated using diff-based filtering. Only suggestions overlapping with changes in the provided diff file are included.\n\n${summaryContent}`;
+      }
+
       fs.writeFileSync(
         utils.buildPath(summaryPath, cwd),
-        response.output,
+        summaryContent,
         "utf-8",
       );
     });

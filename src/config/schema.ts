@@ -141,6 +141,29 @@ export const CONFIG_REVIEW_INSTRUCTIONS = withConfig(
   "TKMD_REVIEW_INSTRUCTIONS",
 );
 
+export const CONFIG_REVIEW_DIFF_FILE = withConfig(
+  z
+    .string()
+    .describe("Path to unified diff file for filtering review suggestions")
+    .optional(),
+  "diffFile",
+  "TKMD_AI_REVIEW_DIFF_FILE",
+);
+
+export const CONFIG_REVIEW_DIFF_CONTEXT = withConfig(
+  z
+    .union([
+      z.number().nonnegative("Diff context must be non-negative"),
+      z.string().transform((val) => parseInt(val, 10)),
+    ])
+    .describe(
+      "Number of context lines around changed lines to include (symmetric)",
+    )
+    .default(3),
+  "diffContext",
+  "TKMD_AI_REVIEW_DIFF_CONTEXT",
+);
+
 export const CONFIG_FORCE_TRANSLATION = withConfig(
   z
     .boolean()
@@ -272,6 +295,8 @@ export const configSchema = z.object({
     review: z.object({
       summaryPath: CONFIG_REVIEW_SUMMARY_PATH,
       instructions: CONFIG_REVIEW_INSTRUCTIONS,
+      diffFile: CONFIG_REVIEW_DIFF_FILE,
+      diffContext: CONFIG_REVIEW_DIFF_CONTEXT,
     }),
     translation: z.object({
       force: CONFIG_FORCE_TRANSLATION,

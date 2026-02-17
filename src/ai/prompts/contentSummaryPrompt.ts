@@ -45,6 +45,7 @@ export function buildContentSummaryPrompt(
   language: Language,
   defaultLanguage: Language,
   sourceLanguage: Language,
+  includeImages: boolean,
 ): string {
   const promptTemplate = Handlebars.compile(template);
 
@@ -52,6 +53,7 @@ export function buildContentSummaryPrompt(
     tree,
     contentDirectory || projectDirectory,
     sourceLanguage,
+    includeImages,
   );
 
   return promptTemplate({

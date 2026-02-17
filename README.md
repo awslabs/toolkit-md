@@ -53,6 +53,19 @@ Include images from Markdown files in the review (WARNING: can result in signifi
 toolkit-md review --write ./docs --include-images
 ```
 
+Review only changes from a git diff:
+
+```bash
+git diff main > changes.diff
+toolkit-md review --diff-file changes.diff --summary-file review-summary.md ./docs
+```
+
+Customize the context window for diff-based review:
+
+```bash
+toolkit-md review --diff-file changes.diff --summary-file review-summary.md --diff-context 5 ./docs
+```
+
 ### Translate Content
 
 Translate all Markdown content in a directory to French:
@@ -67,6 +80,20 @@ Ask questions about content across an entire documentation directory:
 
 ```bash
 toolkit-md ask ./docs --question "What are the main topics covered?"
+```
+
+### Map Content Structure
+
+Print a tree map of all Markdown files in a directory:
+
+```bash
+toolkit-md map ./docs
+```
+
+Include image references in the tree output:
+
+```bash
+toolkit-md map ./docs --images
 ```
 
 ## Configuration
@@ -98,6 +125,8 @@ Toolkit for Markdown supports configuration through:
 | `ai.maxImageSize`               | `--max-image-size`   | `TKMD_AI_MAX_IMAGE_SIZE`               | Maximum image file size in bytes                                                             | `3145728` (3MB)                                      |
 | `ai.review.instructions`        | `--instructions`     | `TKMD_AI_REVIEW_INSTRUCTIONS`          | Additional instructions for the model                                                        | `undefined`                                          |
 | `ai.review.summaryFile`         | `--summary-file`     | `TKMD_AI_REVIEW_SUMMARY_PATH`          | Write a summary of the review changes to the provided file path in Markdown format           | `""`                                                 |
+| `ai.review.diffFile`            | `--diff-file`        | `TKMD_AI_REVIEW_DIFF_FILE`             | Path to unified diff file for filtering review suggestions                                   | `undefined`                                          |
+| `ai.review.diffContext`         | `--diff-context`     | `TKMD_AI_REVIEW_DIFF_CONTEXT`          | Number of context lines around changed lines to include (symmetric)                          | `3`                                                  |
 | `ai.translation.force`          | `--force`            | `TKMD_AI_FORCE_TRANSLATION`            | Force translation even if source unchanged                                                   | `false`                                              |
 | `ai.translation.check`          | `--check`            | `TKMD_AI_CHECK_TRANSLATION`            | Only check if translation needed                                                             | `false`                                              |
 | `ai.translation.directory`      | `--translation-dir`  | `TKMD_AI_TRANSLATION_DIRECTORY`        | Directory where translated content is stored, if not specified defaults to source directory  | `undefined`                                          |
@@ -318,10 +347,26 @@ Toolkit for Markdown uses AWS Bedrock for AI processing. Ensure the following is
 
 Analyzes Markdown content using AI to identify areas for improvement including grammar, clarity, structure, and adherence to style guides. The AI reviews each file individually or with contextual awareness of related files, providing suggestions or directly applying changes. Supports processing entire directory trees of Markdown files while respecting language markers and file organization.
 
+**Diff-Based Review:**
+
+When a diff file is provided via `--diff-file`, the review command filters AI suggestions to only include changes that overlap with lines modified in the diff. This is useful for reviewing only recent changes in version-controlled content. The `--diff-context` option (default: 3) controls how many lines before and after each change are included in the review scope.
+
+Requirements when using `--diff-file`:
+- Must provide `--summary-file` to capture review results
+- Cannot use `--write` flag (diff-based review is read-only for safety)
+- Diff output is not displayed to console (only written to summary file)
+
 **Example:**
 
 ```bash
 toolkit-md review ./docs --write --style-guide ./guides/style.md --context-strategy siblings
+```
+
+**Diff-Based Review Example:**
+
+```bash
+git diff main > changes.diff
+toolkit-md review --diff-file changes.diff --summary-file review-summary.md --diff-context 5 ./docs
 ```
 
 **Options:**
@@ -339,6 +384,8 @@ toolkit-md review ./docs --write --style-guide ./guides/style.md --context-strat
 - `--style-guide`
 - `--summary-file`
 - `--instructions`
+- `--diff-file`
+- `--diff-context`
 - `--include-images`
 - `--image-base-path`
 - `--max-images`
@@ -395,6 +442,30 @@ toolkit-md ask ./docs --question "What are the installation requirements and set
 - `--token-rate`
 - `--exemplar`
 - `--style-guide`
+
+### `map`
+
+Prints a hierarchical tree map of Markdown content showing the structure of files and directories with their titles. This command does not use AI and requires no AWS credentials. Optionally includes image references found in each file.
+
+**Example:**
+
+```bash
+toolkit-md map ./docs
+```
+
+**With image references:**
+
+```bash
+toolkit-md map ./docs --images
+```
+
+**Options:**
+
+- `--images`
+- `--language`
+- `--default-language`
+- `--content-dir`
+- `--cwd`
 
 ### `mcp`
 

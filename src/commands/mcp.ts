@@ -150,9 +150,16 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
             `Language for which to generate the content map. If omitted then the projects default language will be used. Can be one of: ${languages}`,
           )
           .optional(),
+        includeImages: z
+          .boolean()
+          .describe(
+            "Include paths for images referenced in each content file in the map",
+          )
+          .optional()
+          .default(false),
       },
     },
-    async ({ projectDirectory, language: sourceLanguage }) => {
+    async ({ projectDirectory, language: sourceLanguage, includeImages }) => {
       utils.validatePathWithinCwd(projectDirectory, cwd);
 
       const config = new ConfigManager(projectDirectory);
@@ -193,6 +200,7 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
         language,
         defaultLanguage,
         resolvedSourceLanguage,
+        includeImages,
       );
 
       return { content: [{ type: "text", text: prompt }] };

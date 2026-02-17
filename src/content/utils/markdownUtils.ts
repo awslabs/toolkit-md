@@ -25,6 +25,13 @@ import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import * as matter from "gray-matter";
+import remarkDirective from "remark-directive";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
+import type {
+  CodeBlockReference,
+  ImageReference,
+} from "../tree/ContentNode.js";
 
 /**
  * Parsed markdown content with extracted metadata.
@@ -146,30 +153,127 @@ export function generateHash(text: string): string {
 export const TRANSLATION_SRC_HASH_KEY = "tmdTranslationSourceHash";
 export const LEGACY_TRANSLATION_SRC_HASH_KEY = "wsmSourceHash";
 
-export function extractImagePaths(content: string): string[] {
-  const paths = new Set<string>();
-  const markdownImageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
-  const htmlImageRegex = /<img[^>]+src=["']([^"']+)["']/g;
+export interface MarkdownElements {
+  images: ImageReference[];
+  codeBlocks: CodeBlockReference[];
+  title: string | null;
+}
 
-  let match = markdownImageRegex.exec(content);
-  while (match !== null) {
-    const path = match[2].split(/\s+/)[0];
-    if (!path.startsWith("http://") && !path.startsWith("https://")) {
-      paths.add(path);
+function extractTextFromChildren(children?: unknown[]): string {
+  if (!Array.isArray(children)) return "";
+  return children
+    .filter(
+      (c): c is { type: string; value?: string; children?: unknown[] } =>
+        typeof c === "object" && c !== null,
+    )
+    .map((c) =>
+      c.type === "text" && c.value
+        ? c.value
+        : extractTextFromChildren(c.children),
+    )
+    .join("");
+}
+
+export function extractMarkdownElements(content: string): MarkdownElements {
+  const tree = unified().use(remarkParse).use(remarkDirective).parse(content);
+  const seenImages = new Set<string>();
+  const images: ImageReference[] = [];
+  const codeBlocks: CodeBlockReference[] = [];
+  let title: string | null = null;
+
+  function visit(node: {
+    type: string;
+    depth?: number;
+    name?: string;
+    url?: string;
+    alt?: string;
+    lang?: string;
+    value?: string;
+    attributes?: Record<string, string>;
+    position?: { start: { line: number } };
+    children?: unknown[];
+  }): void {
+    if (node.type === "heading" && node.depth === 1 && title === null) {
+      title = extractTextFromChildren(node.children) || null;
     }
-    match = markdownImageRegex.exec(content);
+    if (node.type === "image" && node.url) {
+      if (!seenImages.has(node.url)) {
+        seenImages.add(node.url);
+        images.push({
+          path: node.url,
+          alt: node.alt || null,
+          line: node.position?.start.line ?? 0,
+          remote: isRemoteUrl(node.url),
+        });
+      }
+    }
+
+    if (
+      (node.type === "leafDirective" ||
+        node.type === "textDirective" ||
+        node.type === "containerDirective") &&
+      node.name === "image"
+    ) {
+      const src = node.attributes?.src;
+      if (src && !seenImages.has(src)) {
+        seenImages.add(src);
+        const alt = extractTextFromChildren(node.children) || null;
+        images.push({
+          path: src,
+          alt,
+          line: node.position?.start.line ?? 0,
+          remote: isRemoteUrl(src),
+        });
+      }
+    }
+
+    if (node.type === "html" && typeof node.value === "string") {
+      const htmlImageRegex =
+        /<img[^>]+src=["']([^"']+)["'](?:[^>]+alt=["']([^"']*)["'])?/g;
+      const altFirstRegex =
+        /<img[^>]+alt=["']([^"']*)["'](?:[^>]+src=["']([^"']+)["'])/g;
+      const matched = new Set<string>();
+
+      for (const regex of [htmlImageRegex, altFirstRegex]) {
+        let match = regex.exec(node.value);
+        while (match !== null) {
+          const src = regex === htmlImageRegex ? match[1] : match[2];
+          const alt = regex === htmlImageRegex ? match[2] : match[1];
+          if (src && !seenImages.has(src) && !matched.has(src)) {
+            seenImages.add(src);
+            matched.add(src);
+            images.push({
+              path: src,
+              alt: alt || null,
+              line: node.position?.start.line ?? 0,
+              remote: isRemoteUrl(src),
+            });
+          }
+          match = regex.exec(node.value);
+        }
+      }
+    }
+
+    if (node.type === "code" && typeof node.value === "string") {
+      codeBlocks.push({
+        language: node.lang || null,
+        code: node.value,
+        line: node.position?.start.line ?? 0,
+      });
+    }
+
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) {
+        visit(child as typeof node);
+      }
+    }
   }
 
-  match = htmlImageRegex.exec(content);
-  while (match !== null) {
-    const path = match[1];
-    if (!path.startsWith("http://") && !path.startsWith("https://")) {
-      paths.add(path);
-    }
-    match = htmlImageRegex.exec(content);
-  }
-
-  return Array.from(paths);
+  visit(tree as unknown as Parameters<typeof visit>[0]);
+  return { images, codeBlocks, title };
+}
+function isRemoteUrl(url: string): boolean {
+  return url.startsWith("http://") || url.startsWith("https://");
 }
 
 export async function loadImage(
