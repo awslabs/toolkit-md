@@ -156,7 +156,9 @@ export const CONFIG_REVIEW_DIFF_CONTEXT = withConfig(
       z.number().nonnegative("Diff context must be non-negative"),
       z.string().transform((val) => parseInt(val, 10)),
     ])
-    .describe("Number of context lines around changed lines to include (symmetric)")
+    .describe(
+      "Number of context lines around changed lines to include (symmetric)",
+    )
     .default(3),
   "diffContext",
   "TKMD_AI_REVIEW_DIFF_CONTEXT",

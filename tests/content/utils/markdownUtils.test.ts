@@ -108,9 +108,19 @@ More text
 
     const { images } = extractMarkdownElements(content);
     expect(images).toEqual([
-      { path: "https://example.com/image.png", alt: "Remote", line: 1, remote: true },
+      {
+        path: "https://example.com/image.png",
+        alt: "Remote",
+        line: 1,
+        remote: true,
+      },
       { path: "./local.png", alt: "Local", line: 2, remote: false },
-      { path: "http://example.com/other.jpg", alt: null, line: 3, remote: true },
+      {
+        path: "http://example.com/other.jpg",
+        alt: null,
+        line: 3,
+        remote: true,
+      },
     ]);
   });
 
@@ -123,7 +133,12 @@ More text
     expect(images).toEqual([
       { path: "./md.png", alt: "MD", line: 1, remote: false },
       { path: "./html.jpg", alt: null, line: 2, remote: false },
-      { path: "https://example.com/remote.png", alt: "URL", line: 3, remote: true },
+      {
+        path: "https://example.com/remote.png",
+        alt: "URL",
+        line: 3,
+        remote: true,
+      },
     ]);
   });
 
@@ -161,7 +176,12 @@ describe("extractMarkdownElements - image directives", () => {
 
     const { images } = extractMarkdownElements(content);
     expect(images).toEqual([
-      { path: "/static/img/illus.png", alt: "A fun illustration", line: 3, remote: false },
+      {
+        path: "/static/img/illus.png",
+        alt: "A fun illustration",
+        line: 3,
+        remote: false,
+      },
     ]);
   });
 
@@ -180,7 +200,12 @@ describe("extractMarkdownElements - image directives", () => {
 
     const { images } = extractMarkdownElements(content);
     expect(images).toEqual([
-      { path: "https://example.com/img.png", alt: "Remote", line: 1, remote: true },
+      {
+        path: "https://example.com/img.png",
+        alt: "Remote",
+        line: 1,
+        remote: true,
+      },
       { path: "./local.png", alt: "Local", line: 2, remote: false },
     ]);
   });
@@ -203,7 +228,12 @@ describe("extractMarkdownElements - image directives", () => {
     const { images } = extractMarkdownElements(content);
     expect(images).toEqual([
       { path: "./standard.png", alt: "Standard", line: 1, remote: false },
-      { path: "/static/directive.png", alt: "Directive", line: 2, remote: false },
+      {
+        path: "/static/directive.png",
+        alt: "Directive",
+        line: 2,
+        remote: false,
+      },
       { path: "./html.jpg", alt: "HTML", line: 3, remote: false },
     ]);
   });

@@ -133,9 +133,7 @@ async function executeAction(
   }
 
   if (diffFile && summaryPath.length === 0) {
-    throw new Error(
-      "Must provide --summary-file when using --diff-file.",
-    );
+    throw new Error("Must provide --summary-file when using --diff-file.");
   }
 
   console.log("\n");

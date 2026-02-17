@@ -557,8 +557,8 @@ export class ContentTree {
    * ```
    */
   public getTreeMap(includeImages = false): string {
-      return this.buildTreeMap(this.root, true, "", includeImages);
-    }
+    return this.buildTreeMap(this.root, true, "", includeImages);
+  }
 
   /**
    * Recursively builds the visual tree representation.
@@ -574,49 +574,54 @@ export class ContentTree {
    * @internal
    */
   private buildTreeMap(
-      node: ContentNode,
-      isLast: boolean,
-      indent: string = "",
-      includeImages = false,
-    ): string {
-      const prefix = `${indent}${isLast ? "└── " : "├── "}`;
+    node: ContentNode,
+    isLast: boolean,
+    indent: string = "",
+    includeImages = false,
+  ): string {
+    const prefix = `${indent}${isLast ? "└── " : "├── "}`;
 
-      if (!node.isDirectory) {
-        if (node.content) {
-          let line = `${prefix}${path.basename(node.filePath || "")} (title: ${node.frontmatter?.title || ""})\n`;
-          if (includeImages && node.images.length > 0) {
-            const imageIndent = `${indent}${isLast ? " " : "│"}   `;
-            for (let j = 0; j < node.images.length; j++) {
-              const img = node.images[j];
-              const isLastImage = j === node.images.length - 1;
-              line += `${imageIndent}${isLastImage ? "└── " : "├── "}[image] ${img.path}\n`;
-            }
+    if (!node.isDirectory) {
+      if (node.content) {
+        let line = `${prefix}${path.basename(node.filePath || "")} (title: ${node.frontmatter?.title || ""})\n`;
+        if (includeImages && node.images.length > 0) {
+          const imageIndent = `${indent}${isLast ? " " : "│"}   `;
+          for (let j = 0; j < node.images.length; j++) {
+            const img = node.images[j];
+            const isLastImage = j === node.images.length - 1;
+            line += `${imageIndent}${isLastImage ? "└── " : "├── "}[image] ${img.path}\n`;
           }
-          return line;
         }
-
-        return "";
+        return line;
       }
 
-      let output = "";
-
-      if (node.children.length > 0) {
-        for (let i = 0; i < node.children.length; i++) {
-          const child = node.children[i];
-
-          const isLastChild = i === node.children.length - 1;
-          const childIndent = `${indent}${isLast ? " " : "│"}   `;
-
-          output += this.buildTreeMap(child, isLastChild, childIndent, includeImages);
-        }
-
-        if (output.length > 0) {
-          output = `${prefix}${node.name}\n${output}`;
-        }
-      }
-
-      return output;
+      return "";
     }
+
+    let output = "";
+
+    if (node.children.length > 0) {
+      for (let i = 0; i < node.children.length; i++) {
+        const child = node.children[i];
+
+        const isLastChild = i === node.children.length - 1;
+        const childIndent = `${indent}${isLast ? " " : "│"}   `;
+
+        output += this.buildTreeMap(
+          child,
+          isLastChild,
+          childIndent,
+          includeImages,
+        );
+      }
+
+      if (output.length > 0) {
+        output = `${prefix}${node.name}\n${output}`;
+      }
+    }
+
+    return output;
+  }
 
   /**
    * Deletes a node by its logical path.

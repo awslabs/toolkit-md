@@ -58,7 +58,11 @@ async function executeAction(
   const contentDir = utils.getContentDirWithTarget(config, content);
   const includeImages = options.images ?? false;
 
-  const tree = await utils.buildContentTree(contentDir, defaultLanguage, language);
+  const tree = await utils.buildContentTree(
+    contentDir,
+    defaultLanguage,
+    language,
+  );
 
   console.log(tree.getTreeMap(includeImages));
 }

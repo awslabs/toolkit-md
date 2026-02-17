@@ -28,7 +28,10 @@ import * as matter from "gray-matter";
 import remarkDirective from "remark-directive";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
-import type { CodeBlockReference, ImageReference } from "../tree/ContentNode.js";
+import type {
+  CodeBlockReference,
+  ImageReference,
+} from "../tree/ContentNode.js";
 
 /**
  * Parsed markdown content with extracted metadata.
@@ -159,8 +162,15 @@ export interface MarkdownElements {
 function extractTextFromChildren(children?: unknown[]): string {
   if (!Array.isArray(children)) return "";
   return children
-    .filter((c): c is { type: string; value?: string; children?: unknown[] } => typeof c === "object" && c !== null)
-    .map((c) => (c.type === "text" && c.value ? c.value : extractTextFromChildren(c.children)))
+    .filter(
+      (c): c is { type: string; value?: string; children?: unknown[] } =>
+        typeof c === "object" && c !== null,
+    )
+    .map((c) =>
+      c.type === "text" && c.value
+        ? c.value
+        : extractTextFromChildren(c.children),
+    )
     .join("");
 }
 
@@ -171,7 +181,18 @@ export function extractMarkdownElements(content: string): MarkdownElements {
   const codeBlocks: CodeBlockReference[] = [];
   let title: string | null = null;
 
-  function visit(node: { type: string; depth?: number; name?: string; url?: string; alt?: string; lang?: string; value?: string; attributes?: Record<string, string>; position?: { start: { line: number } }; children?: unknown[] }): void {
+  function visit(node: {
+    type: string;
+    depth?: number;
+    name?: string;
+    url?: string;
+    alt?: string;
+    lang?: string;
+    value?: string;
+    attributes?: Record<string, string>;
+    position?: { start: { line: number } };
+    children?: unknown[];
+  }): void {
     if (node.type === "heading" && node.depth === 1 && title === null) {
       title = extractTextFromChildren(node.children) || null;
     }
@@ -187,7 +208,12 @@ export function extractMarkdownElements(content: string): MarkdownElements {
       }
     }
 
-    if ((node.type === "leafDirective" || node.type === "textDirective" || node.type === "containerDirective") && node.name === "image") {
+    if (
+      (node.type === "leafDirective" ||
+        node.type === "textDirective" ||
+        node.type === "containerDirective") &&
+      node.name === "image"
+    ) {
       const src = node.attributes?.src;
       if (src && !seenImages.has(src)) {
         seenImages.add(src);
@@ -202,8 +228,10 @@ export function extractMarkdownElements(content: string): MarkdownElements {
     }
 
     if (node.type === "html" && typeof node.value === "string") {
-      const htmlImageRegex = /<img[^>]+src=["']([^"']+)["'](?:[^>]+alt=["']([^"']*)["'])?/g;
-      const altFirstRegex = /<img[^>]+alt=["']([^"']*)["'](?:[^>]+src=["']([^"']+)["'])/g;
+      const htmlImageRegex =
+        /<img[^>]+src=["']([^"']+)["'](?:[^>]+alt=["']([^"']*)["'])?/g;
+      const altFirstRegex =
+        /<img[^>]+alt=["']([^"']*)["'](?:[^>]+src=["']([^"']+)["'])/g;
       const matched = new Set<string>();
 
       for (const regex of [htmlImageRegex, altFirstRegex]) {
@@ -247,7 +275,6 @@ export function extractMarkdownElements(content: string): MarkdownElements {
 function isRemoteUrl(url: string): boolean {
   return url.startsWith("http://") || url.startsWith("https://");
 }
-
 
 export async function loadImage(
   imagePath: string,

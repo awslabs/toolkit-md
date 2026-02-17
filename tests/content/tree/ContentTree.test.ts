@@ -144,9 +144,19 @@ Some text
 
     const node = tree.add("/docs/guide.md", content);
     expect(node?.images).toEqual([
-      { path: "https://example.com/image.png", alt: "Remote", line: 1, remote: true },
+      {
+        path: "https://example.com/image.png",
+        alt: "Remote",
+        line: 1,
+        remote: true,
+      },
       { path: "./local.png", alt: "Local", line: 2, remote: false },
-      { path: "http://example.com/other.jpg", alt: null, line: 3, remote: true },
+      {
+        path: "http://example.com/other.jpg",
+        alt: null,
+        line: 3,
+        remote: true,
+      },
     ]);
   });
 
@@ -172,10 +182,15 @@ Some text
     const tree = new ContentTree(provider);
 
     const node = tree.add("/docs/guide.md", "![Old](./old.png)");
-    expect(node?.images).toEqual([{ path: "./old.png", alt: "Old", line: 1, remote: false }]);
+    expect(node?.images).toEqual([
+      { path: "./old.png", alt: "Old", line: 1, remote: false },
+    ]);
 
-    // biome-ignore lint/style/noNonNullAssertion: TODO handle better
-    await tree.updateContent(node!, "![New](./new.png)\n![Another](./another.jpg)");
+    await tree.updateContent(
+      // biome-ignore lint/style/noNonNullAssertion: TODO handle better
+      node!,
+      "![New](./new.png)\n![Another](./another.jpg)",
+    );
     expect(node?.images).toEqual([
       { path: "./new.png", alt: "New", line: 1, remote: false },
       { path: "./another.jpg", alt: "Another", line: 2, remote: false },
@@ -186,7 +201,8 @@ Some text
     const provider = new MockProvider();
     const tree = new ContentTree(provider);
 
-    const content = "# Guide\n\n```typescript\nconst x = 1;\n```\n\nSome text\n\n```python\nprint(\"hello\")\n```";
+    const content =
+      '# Guide\n\n```typescript\nconst x = 1;\n```\n\nSome text\n\n```python\nprint("hello")\n```';
 
     const node = tree.add("/docs/guide.md", content);
     expect(node?.codeBlocks).toEqual([
@@ -217,11 +233,15 @@ Some text
     const tree = new ContentTree(provider);
 
     const node = tree.add("/docs/guide.md", "```js\nold()\n```");
-    expect(node?.codeBlocks).toEqual([{ language: "js", code: "old()", line: 1 }]);
+    expect(node?.codeBlocks).toEqual([
+      { language: "js", code: "old()", line: 1 },
+    ]);
 
     // biome-ignore lint/style/noNonNullAssertion: TODO handle better
     await tree.updateContent(node!, "```ts\nnewCode()\n```");
-    expect(node?.codeBlocks).toEqual([{ language: "ts", code: "newCode()", line: 1 }]);
+    expect(node?.codeBlocks).toEqual([
+      { language: "ts", code: "newCode()", line: 1 },
+    ]);
   });
 
   test("should return flattened tree in weight order", () => {
@@ -294,7 +314,10 @@ Some text
     const provider = new MockProvider();
     const tree = new ContentTree(provider);
 
-    const node = tree.add("/docs/guide.md", "---\ntitle: FM Title\n---\n# Heading Title");
+    const node = tree.add(
+      "/docs/guide.md",
+      "---\ntitle: FM Title\n---\n# Heading Title",
+    );
     expect(node?.frontmatter.title).toBe("FM Title");
   });
 
@@ -320,7 +343,12 @@ Some text
 
     const node = tree.add("/docs/guide.md", content);
     expect(node?.images).toEqual([
-      { path: "/static/img/illus.png", alt: "A fun illustration", line: 2, remote: false },
+      {
+        path: "/static/img/illus.png",
+        alt: "A fun illustration",
+        line: 2,
+        remote: false,
+      },
       { path: "./standard.png", alt: "Standard", line: 3, remote: false },
     ]);
   });
@@ -329,7 +357,10 @@ Some text
     const provider = new MockProvider();
     const tree = new ContentTree(provider);
 
-    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![Diagram](./images/diagram.png)");
+    tree.add(
+      "/docs/guide.md",
+      "---\ntitle: Guide\n---\n![Diagram](./images/diagram.png)",
+    );
 
     const treeMap = tree.getTreeMap();
     expect(treeMap).toContain("guide.md");
@@ -340,7 +371,10 @@ Some text
     const provider = new MockProvider();
     const tree = new ContentTree(provider);
 
-    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![Diagram](./images/diagram.png)\n![Photo](./assets/photo.jpg)");
+    tree.add(
+      "/docs/guide.md",
+      "---\ntitle: Guide\n---\n![Diagram](./images/diagram.png)\n![Photo](./assets/photo.jpg)",
+    );
 
     const treeMap = tree.getTreeMap(true);
     expect(treeMap).toContain("guide.md");
@@ -352,7 +386,10 @@ Some text
     const provider = new MockProvider();
     const tree = new ContentTree(provider);
 
-    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![Diagram](./diagram.png)");
+    tree.add(
+      "/docs/guide.md",
+      "---\ntitle: Guide\n---\n![Diagram](./diagram.png)",
+    );
 
     const treeMap = tree.getTreeMap(true);
     expect(treeMap).toContain("└── [image] ./diagram.png");
@@ -362,7 +399,10 @@ Some text
     const provider = new MockProvider();
     const tree = new ContentTree(provider);
 
-    tree.add("/docs/guide.md", "---\ntitle: Guide\n---\n![A](./a.png)\n![B](./b.png)");
+    tree.add(
+      "/docs/guide.md",
+      "---\ntitle: Guide\n---\n![A](./a.png)\n![B](./b.png)",
+    );
 
     const treeMap = tree.getTreeMap(true);
     expect(treeMap).toContain("├── [image] ./a.png");

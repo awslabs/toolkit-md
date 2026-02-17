@@ -152,7 +152,11 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
           .optional(),
         includeImages: z
           .boolean()
-          .describe("Include paths for images referenced in each content file in the map").optional().default(false),
+          .describe(
+            "Include paths for images referenced in each content file in the map",
+          )
+          .optional()
+          .default(false),
       },
     },
     async ({ projectDirectory, language: sourceLanguage, includeImages }) => {

@@ -93,7 +93,9 @@ export async function buildReviewPrompt(
       currentNode.images
         .filter((img) => !img.remote)
         .slice(0, maxImages)
-        .map((img) => loadImage(img.path, baseDir, imageBasePath, maxImageSize)),
+        .map((img) =>
+          loadImage(img.path, baseDir, imageBasePath, maxImageSize),
+        ),
     );
 
     const images = results.filter(
