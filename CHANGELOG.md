@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.7](https://github.com/awslabs/toolkit-md/compare/v0.1.6...v0.1.7) (2026-02-19)
+
+
+### Features
+
+* Add map command ([#32](https://github.com/awslabs/toolkit-md/issues/32)) ([4c34496](https://github.com/awslabs/toolkit-md/commit/4c34496d05993bb1484b7590ab61a753cc238ca0))
+* Added checks for broken links, images and MD linting ([#33](https://github.com/awslabs/toolkit-md/issues/33)) ([a95bb97](https://github.com/awslabs/toolkit-md/commit/a95bb97c4b17d100f848fa2b7f3bf62da683a28a))
+* Review images in content ([#29](https://github.com/awslabs/toolkit-md/issues/29)) ([1cc25f5](https://github.com/awslabs/toolkit-md/commit/1cc25f59cbdf3467e2121770be578ca5e46def16))
+
 ## [0.1.6](https://github.com/awslabs/toolkit-md/compare/v0.1.5...v0.1.6) (2026-02-09)
 
 
