@@ -23,3 +23,4 @@
 export * from "./diffUtils.js";
 export * from "./languageUtils.js";
 export * from "./markdownUtils.js";
+export * from "./staticPathUtils.js";

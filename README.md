@@ -9,13 +9,14 @@ CLI tools for maintaining Markdown content like documentation and tutorials.
 
 ## Features
 
-- **🤖 AI-Powered Content Review** - Automatically review and improve your Markdown content using Amazon Bedrock
-- **🌍 Multi-Language Translation** - Translate content between 8+ supported languages
-- **❓ Intelligent Q&A** - Ask questions about your content and get AI-powered answers
-- **📝 Style Guide Enforcement** - Maintain consistency with custom style guides
-- **⚡ Rate Limiting** - Built-in rate limiting for API calls
-- **🎯 Context-Aware Processing** - Smart content processing with configurable context strategies
-- **🔌 Model Context Protocol Server** - Integrate with tools like Cursor, Cline and Q Developer with the built-in MCP server
+- **Content Validation** - Check Markdown files for lint issues, broken links, and missing images
+- **AI-Powered Content Review** - Automatically review and improve your Markdown content using Amazon Bedrock
+- **Multi-Language Translation** - Translate content between 8+ supported languages
+- **Intelligent Q&A** - Ask questions about your content and get AI-powered answers
+- **Style Guide Enforcement** - Maintain consistency with custom style guides
+- **Rate Limiting** - Built-in rate limiting for API calls
+- **Context-Aware Processing** - Smart content processing with configurable context strategies
+- **Model Context Protocol Server** - Integrate with tools like Cursor, Cline and Q Developer with the built-in MCP server
 
 ## Installation
 
@@ -96,6 +97,38 @@ Include image references in the tree output:
 toolkit-md map ./docs --images
 ```
 
+### Check Content
+
+Run non-AI validation checks on Markdown files including linting, broken link detection, and missing image detection:
+
+```bash
+toolkit-md check ./docs
+```
+
+Skip external link validation for offline or faster checks:
+
+```bash
+toolkit-md check ./docs --skip-external-links
+```
+
+Ignore specific markdownlint rules:
+
+```bash
+toolkit-md check ./docs --ignore-rule MD013 --ignore-rule MD033
+```
+
+Only report errors (skip warnings):
+
+```bash
+toolkit-md check ./docs --min-severity error
+```
+
+Run only specific check categories:
+
+```bash
+toolkit-md check ./docs --category lint --category link
+```
+
 ## Configuration
 
 Toolkit for Markdown supports configuration through:
@@ -120,19 +153,26 @@ Toolkit for Markdown supports configuration through:
 | `ai.exemplars`                  | `--exemplar`         | `TKMD_AI_EXEMPLAR_*`                   | Path to directory of content to use as an example to follow, can be specified multiple times | `[]`                                                 |
 | `ai.styleGuides`                | `--style-guide`      | `TKMD_AI_STYLE_GUIDE_*`                | Path to style guide file, can be specified multiple times                                    | `[]`                                                 |
 | `ai.includeImages`              | `--include-images`   | `TKMD_AI_INCLUDE_IMAGES`               | Include images from markdown files in AI review                                              | `false`                                              |
-| `ai.imageBasePath`              | `--image-base-path`  | `TKMD_AI_IMAGE_BASE_PATH`              | Base path for resolving absolute image paths                                                 | `contentDir`                                         |
 | `ai.maxImages`                  | `--max-images`       | `TKMD_AI_MAX_IMAGES`                   | Maximum number of images to include per file                                                 | `5`                                                  |
 | `ai.maxImageSize`               | `--max-image-size`   | `TKMD_AI_MAX_IMAGE_SIZE`               | Maximum image file size in bytes                                                             | `3145728` (3MB)                                      |
 | `ai.review.instructions`        | `--instructions`     | `TKMD_AI_REVIEW_INSTRUCTIONS`          | Additional instructions for the model                                                        | `undefined`                                          |
 | `ai.review.summaryFile`         | `--summary-file`     | `TKMD_AI_REVIEW_SUMMARY_PATH`          | Write a summary of the review changes to the provided file path in Markdown format           | `""`                                                 |
 | `ai.review.diffFile`            | `--diff-file`        | `TKMD_AI_REVIEW_DIFF_FILE`             | Path to unified diff file for filtering review suggestions                                   | `undefined`                                          |
 | `ai.review.diffContext`         | `--diff-context`     | `TKMD_AI_REVIEW_DIFF_CONTEXT`          | Number of context lines around changed lines to include (symmetric)                          | `3`                                                  |
+| `ai.review.runChecks`           | `--review-check`     | `TKMD_AI_REVIEW_CHECK`                 | Run content checks and include results in the review prompt                                  | `true`                                               |
 | `ai.translation.force`          | `--force`            | `TKMD_AI_FORCE_TRANSLATION`            | Force translation even if source unchanged                                                   | `false`                                              |
 | `ai.translation.check`          | `--check`            | `TKMD_AI_CHECK_TRANSLATION`            | Only check if translation needed                                                             | `false`                                              |
 | `ai.translation.directory`      | `--translation-dir`  | `TKMD_AI_TRANSLATION_DIRECTORY`        | Directory where translated content is stored, if not specified defaults to source directory  | `undefined`                                          |
 | `ai.translation.skipFileSuffix` | `--skip-file-suffix` | `TKMD_AI_TRANSLATION_SKIP_FILE_SUFFIX` | Omit the language code suffix for translated files ('example.fr.md' becomes 'example.md')    | `false`                                              |
+| `check.minSeverity`            | `--min-severity`    | `TKMD_CHECK_MIN_SEVERITY`               | Minimum severity level to report (error, warning)                                            | `"warning"`                                          |
+| `check.categories`            | `--category`         | `TKMD_CHECK_CATEGORY_*`                 | Check categories to run (lint, link, image), can be specified multiple times                  | `["lint", "link", "image"]`                          |
+| `check.links.timeout`          | `--link-timeout`     | `TKMD_CHECK_LINK_TIMEOUT`              | Timeout in milliseconds for HTTP link and image checks                                       | `5000`                                               |
+| `check.links.skipExternal`     | `--skip-external-links` | `TKMD_CHECK_SKIP_EXTERNAL_LINKS`    | Skip validation of external HTTP/HTTPS links and images                                      | `false`                                              |
+| `check.lint.ignoreRules`       | `--ignore-rule`      | `TKMD_CHECK_LINT_IGNORE_RULE_*`        | Markdownlint rule names or aliases to ignore, can be specified multiple times                 | `[]`                                                 |
+| `staticPrefix`                 | `--static-prefix`    | `TKMD_STATIC_PREFIX`                   | URL prefix indicating a link points to a file in the static directory                        | `undefined`                                          |
+| `staticDir`                    | `--static-dir`       | `TKMD_STATIC_DIR`                      | Directory relative to the cwd where static assets are stored, used with staticPrefix         | `undefined`                                          |
 
-**Note:** For array values (exemplars, styleGuides), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
+**Note:** For array values (exemplars, styleGuides, ignoreRules), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
 
 ### Configuration File Format
 
@@ -155,14 +195,29 @@ Create a `.toolkit-mdrc` file in JSON format:
     "exemplars": ["./examples/good-example1", "./examples/good-example2"],
     "styleGuides": ["./guides/style-guide.md", "./guides/aws-terminology.md"],
     "includeImages": true,
-    "imageBasePath": "./assets",
     "maxImages": 5,
     "maxImageSize": 3145728,
     "translation": {
       "force": false,
       "check": false
+    },
+    "review": {
+      "runChecks": true
     }
-  }
+  },
+  "check": {
+    "minSeverity": "warning",
+    "categories": ["lint", "link", "image"],
+    "links": {
+      "timeout": 5000,
+      "skipExternal": false
+    },
+    "lint": {
+      "ignoreRules": ["MD013"]
+    }
+  },
+  "staticPrefix": "/static/",
+  "staticDir": "./static"
 }
 ```
 
@@ -317,7 +372,7 @@ The review command can extract and include images referenced in markdown files f
 **Image Path Resolution:**
 
 - **Relative paths** (e.g., `./images/diagram.png`, `../assets/photo.jpg`) are resolved from the markdown file's directory
-- **Absolute paths** (e.g., `/images/diagram.png`) are resolved from the `imageBasePath` configuration (defaults to `contentDir`, resolved from current working directory)
+- **Absolute paths** (e.g., `/images/diagram.png`) are resolved against the `staticDir` directory. If `staticPrefix` is configured and the path starts with it, the prefix is stripped before resolution
 - **Remote URLs** (e.g., `https://example.com/image.png`) are excluded from processing
 
 **Image Limits:**
@@ -329,7 +384,7 @@ The review command can extract and include images referenced in markdown files f
 **Example:**
 
 ```bash
-toolkit-md review ./docs --include-images --max-images 10 --image-base-path ./assets
+toolkit-md review ./docs --include-images --max-images 10 --static-dir ./assets
 ```
 
 Images that cannot be loaded (missing files, unsupported formats, or exceeding size limits) will generate warnings but won't stop the review process.
@@ -386,8 +441,8 @@ toolkit-md review --diff-file changes.diff --summary-file review-summary.md --di
 - `--instructions`
 - `--diff-file`
 - `--diff-context`
+- `--review-check`
 - `--include-images`
-- `--image-base-path`
 - `--max-images`
 - `--max-image-size`
 
@@ -467,6 +522,42 @@ toolkit-md map ./docs --images
 - `--content-dir`
 - `--cwd`
 
+### `check`
+
+Validates Markdown content without AI by running linting checks (via markdownlint), verifying that local link targets exist, and confirming that referenced images are present. Remote links and images are validated with HTTP HEAD requests. This command requires no AWS credentials and is suitable for CI pipelines. Exits with code 1 if any errors are found.
+
+**Example:**
+
+```bash
+toolkit-md check ./docs
+```
+
+**Skip external link and image validation:**
+
+```bash
+toolkit-md check ./docs --skip-external-links
+```
+
+**Ignore specific markdownlint rules:**
+
+```bash
+toolkit-md check ./docs --ignore-rule MD013 --ignore-rule MD033
+```
+
+**Options:**
+
+- `--link-timeout`
+- `--skip-external-links`
+- `--ignore-rule`
+- `--min-severity`
+- `--category`
+- `--static-prefix`
+- `--static-dir`
+- `--language`
+- `--default-language`
+- `--content-dir`
+- `--cwd`
+
 ### `mcp`
 
 Starts an MCP server that exposes tool features to MCP clients. See below for further information.
@@ -530,6 +621,7 @@ The following MCP tools are provided:
 | `content_best_practices`       | Response contains style guide and exemplar content as configured for the specified project. It the `targetLanguage` is provided it will also load style guides for that language and provide them in the response. |
 | `content_review_guidance`      | Response contains guidance for the model to systematically review Markdown content for a given project for general issues and best practices.                                                                      |
 | `content_translation_guidance` | Response contains guidance for the model to translate Markdown for a given project to another language. It helps the model locate both source content as well as existing translated content to use for context.   |
+| `run_checks`                   | Runs lint, link, and image checks on specified Markdown content files relative to the content directory. Supports filtering by severity and category.                                                              |
 
 ## Development
 

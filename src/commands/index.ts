@@ -15,6 +15,7 @@
  */
 
 export * from "./ask.js";
+export * from "./check.js";
 export * from "./map.js";
 export * from "./mcp.js";
 export * from "./review.js";

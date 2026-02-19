@@ -23,6 +23,11 @@ import ora from "ora";
 import type z from "zod";
 import { ZodArray, ZodBoolean, ZodDefault } from "zod";
 import type { ContextStrategy, Exemplar, TokenUsage } from "../ai/index.js";
+import type {
+  CheckCategory,
+  CheckOptions,
+  CheckSeverity,
+} from "../check/types.js";
 import type { ConfigManager } from "../config/index.js";
 import { ContentTree, FileSystemProvider } from "../content/index.js";
 import { Language } from "../languages/index.js";
@@ -70,24 +75,18 @@ export function getContentDir(config: ConfigManager) {
   return path.resolve(path.join(config.getCwd(), contentDir));
 }
 
-export function getImageBasePath(config: ConfigManager) {
-  const imageBasePath = config.get<string | undefined>("ai.imageBasePath");
+export function getStaticDir(config: ConfigManager): string | undefined {
+  const staticDir = config.get<string | undefined>("staticDir");
 
-  if (!imageBasePath) {
-    const contentDir = getContentDir(config);
-
-    if (!contentDir) {
-      return config.getCwd();
-    }
-
-    return contentDir;
+  if (!staticDir) {
+    return undefined;
   }
 
-  if (path.isAbsolute(imageBasePath)) {
-    return imageBasePath;
+  if (path.isAbsolute(staticDir)) {
+    return staticDir;
   }
 
-  return path.resolve(path.join(config.getCwd(), imageBasePath));
+  return path.resolve(path.join(config.getCwd(), staticDir));
 }
 
 export function getContentDirWithTarget(config: ConfigManager, target: string) {
@@ -183,6 +182,28 @@ export function getLanguages(config: ConfigManager): {
   }
 
   return { language, defaultLanguage };
+}
+
+export function getCheckConfig(
+  config: ConfigManager,
+  contentDir: string,
+  rootContentDir?: string,
+): CheckOptions {
+  return {
+    contentDir,
+    rootContentDir,
+    links: {
+      timeout: config.get<number>("check.links.timeout"),
+      skipExternal: config.get<boolean>("check.links.skipExternal"),
+    },
+    lint: {
+      ignoreRules: config.get<string[]>("check.lint.ignoreRules"),
+    },
+    staticPrefix: config.get<string | undefined>("staticPrefix"),
+    staticDir: getStaticDir(config),
+    minSeverity: config.get<CheckSeverity>("check.minSeverity"),
+    categories: config.get<CheckCategory[]>("check.categories"),
+  };
 }
 
 export function getCommonAiOptions(config: ConfigManager, logger: LogWriter) {

@@ -31,6 +31,7 @@ import { unified } from "unified";
 import type {
   CodeBlockReference,
   ImageReference,
+  LinkReference,
 } from "../tree/ContentNode.js";
 
 /**
@@ -155,6 +156,7 @@ export const LEGACY_TRANSLATION_SRC_HASH_KEY = "wsmSourceHash";
 
 export interface MarkdownElements {
   images: ImageReference[];
+  links: LinkReference[];
   codeBlocks: CodeBlockReference[];
   title: string | null;
 }
@@ -178,6 +180,7 @@ export function extractMarkdownElements(content: string): MarkdownElements {
   const tree = unified().use(remarkParse).use(remarkDirective).parse(content);
   const seenImages = new Set<string>();
   const images: ImageReference[] = [];
+  const links: LinkReference[] = [];
   const codeBlocks: CodeBlockReference[] = [];
   let title: string | null = null;
 
@@ -196,6 +199,16 @@ export function extractMarkdownElements(content: string): MarkdownElements {
     if (node.type === "heading" && node.depth === 1 && title === null) {
       title = extractTextFromChildren(node.children) || null;
     }
+
+    if (node.type === "link" && node.url) {
+      links.push({
+        url: node.url,
+        text: extractTextFromChildren(node.children) || null,
+        line: node.position?.start.line ?? 0,
+        remote: isRemoteUrl(node.url),
+      });
+    }
+
     if (node.type === "image" && node.url) {
       if (!seenImages.has(node.url)) {
         seenImages.add(node.url);
@@ -270,7 +283,7 @@ export function extractMarkdownElements(content: string): MarkdownElements {
   }
 
   visit(tree as unknown as Parameters<typeof visit>[0]);
-  return { images, codeBlocks, title };
+  return { images, links, codeBlocks, title };
 }
 function isRemoteUrl(url: string): boolean {
   return url.startsWith("http://") || url.startsWith("https://");
@@ -279,19 +292,18 @@ function isRemoteUrl(url: string): boolean {
 export async function loadImage(
   imagePath: string,
   baseDir: string,
-  imageBasePath: string,
   maxSize: number,
+  staticPrefix?: string,
+  staticDir?: string,
 ): Promise<{ bytes: Uint8Array; format: string } | null> {
   let resolvedPath: string;
 
-  if (isAbsolute(imagePath)) {
-    if (!imageBasePath) {
-      console.warn(
-        `⚠️  No imageBasePath configured for absolute path: ${imagePath}`,
-      );
-      return null;
-    }
-    resolvedPath = join(imageBasePath, imagePath);
+  if (isAbsolute(imagePath) && staticDir) {
+    const stripped =
+      staticPrefix && imagePath.startsWith(staticPrefix)
+        ? imagePath.substring(staticPrefix.length)
+        : imagePath;
+    resolvedPath = join(staticDir, stripped);
   } else {
     resolvedPath = resolve(baseDir, imagePath);
   }

@@ -106,6 +106,7 @@ export class ContentTree {
       filePath: "/",
       hash: null,
       images: [],
+      links: [],
       codeBlocks: [],
     };
     this.nodeMap.set("", this.root);
@@ -239,6 +240,7 @@ export class ContentTree {
       filePath: fileInfo.filePath,
       hash: parsed.hash,
       images: elements.images,
+      links: elements.links,
       codeBlocks: elements.codeBlocks,
     };
 
@@ -319,6 +321,7 @@ export class ContentTree {
       filePath: normalizedPath,
       hash: null,
       images: [],
+      links: [],
       codeBlocks: [],
     };
 
