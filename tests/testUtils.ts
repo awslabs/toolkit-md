@@ -56,6 +56,7 @@ export function createMockTreeNode(
     filePath: path,
     hash,
     images: [],
+    links: [],
     codeBlocks: [],
   };
 }
@@ -89,6 +90,7 @@ export function createMockEmptyTreeNode(path: string): ContentNode {
     filePath: "",
     hash: null,
     images: [],
+    links: [],
     codeBlocks: [],
   };
 }

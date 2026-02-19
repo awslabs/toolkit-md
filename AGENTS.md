@@ -16,6 +16,7 @@ src/                    # Source code
 │   ├── model/         # Bedrock client and rate limiting
 │   ├── prompts/       # Prompt templates for various operations
 │   └── mcp/           # Model Context Protocol server
+├── check/             # Content validation (lint, links, images)
 ├── content/           # Content processing
 │   ├── tree/          # Content tree data structures
 │   ├── providers/     # Content providers (FileSystem, Mock)
@@ -27,6 +28,7 @@ tests/                 # Test files (mirrors src/ structure)
 ├── ai/
 │   ├── model/
 │   └── prompts/
+├── check/
 ├── content/
 │   ├── tree/
 │   ├── providers/

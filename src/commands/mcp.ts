@@ -25,6 +25,8 @@ import {
   buildReviewAgentPrompt,
   buildTranslationAgentPrompt,
 } from "../ai/prompts/index.js";
+import { checkNode } from "../check/index.js";
+import type { CheckOptions } from "../check/types.js";
 import { VERSION } from "../cli.js";
 import { ConfigManager } from "../config/index.js";
 import { Language } from "../languages/index.js";
@@ -409,6 +411,123 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
       );
 
       return { content: [{ type: "text", text: prompt.prompt }] };
+    },
+  );
+
+  server.registerTool(
+    "run_checks",
+    {
+      title: "Run Content Checks",
+      description:
+        "Runs lint, link, and image checks on specified Markdown content files. Files must be specified as paths relative to the content directory.",
+      inputSchema: {
+        projectDirectory: z
+          .string()
+          .describe("Absolute path to base/root directory of the project"),
+        files: z
+          .array(z.string())
+          .describe(
+            "List of file paths relative to the content directory to check",
+          ),
+        minSeverity: z
+          .enum(["error", "warning"])
+          .describe(
+            "Minimum severity level to report, overrides project config",
+          )
+          .optional(),
+        categories: z
+          .array(z.enum(["lint", "link", "image"]))
+          .describe("Check categories to run, overrides project config")
+          .optional(),
+      },
+    },
+    async ({ projectDirectory, files, minSeverity, categories }) => {
+      utils.validatePathWithinCwd(projectDirectory, cwd);
+
+      const config = new ConfigManager(projectDirectory);
+      await config.initialize(options);
+
+      const { language, defaultLanguage } = utils.getLanguages(config);
+
+      const contentDir = utils.getContentDir(config) ?? projectDirectory;
+
+      const tree = await utils.buildContentTree(
+        contentDir,
+        defaultLanguage,
+        language,
+      );
+
+      const allNodes = tree.getFlattenedTree();
+
+      const matchedNodes = files.map((file) => {
+        const node = allNodes.find((n) => {
+          return n.filePath === file || n.filePath === `/${file}`;
+        });
+        if (!node) {
+          throw new Error(`File not found in content tree: ${file}`);
+        }
+        return node;
+      });
+
+      const checkOpts: CheckOptions = {
+        ...utils.getCheckConfig(config, contentDir, contentDir),
+        ...(minSeverity && { minSeverity }),
+        ...(categories && { categories }),
+      };
+
+      const results: string[] = [];
+      let totalErrors = 0;
+      let totalWarnings = 0;
+
+      for (const node of matchedNodes) {
+        const result = await checkNode(node, checkOpts);
+
+        if (!result) {
+          continue;
+        }
+
+        for (const issue of result.issues) {
+          if (issue.severity === "error") {
+            totalErrors++;
+          } else {
+            totalWarnings++;
+          }
+        }
+
+        if (result.issues.length === 0) {
+          results.push(`${result.filePath}: no issues`);
+        } else {
+          results.push(result.filePath);
+          for (const issue of result.issues) {
+            results.push(
+              `  ${issue.line}:${issue.column}  ${issue.severity}  ${issue.rule}  ${issue.message}  (${issue.category})`,
+            );
+          }
+        }
+      }
+
+      const summary = [];
+      if (totalErrors > 0) {
+        summary.push(`${totalErrors} error${totalErrors !== 1 ? "s" : ""}`);
+      }
+      if (totalWarnings > 0) {
+        summary.push(
+          `${totalWarnings} warning${totalWarnings !== 1 ? "s" : ""}`,
+        );
+      }
+
+      const fileCount = matchedNodes.length;
+      if (summary.length > 0) {
+        results.push(
+          `\nResults: ${summary.join(", ")} in ${fileCount} file${fileCount !== 1 ? "s" : ""}`,
+        );
+      } else {
+        results.push(
+          `\nAll ${fileCount} file${fileCount !== 1 ? "s" : ""} passed`,
+        );
+      }
+
+      return { content: [{ type: "text", text: results.join("\n") }] };
     },
   );
 

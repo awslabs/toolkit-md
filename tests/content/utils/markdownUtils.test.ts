@@ -348,3 +348,109 @@ describe("extractMarkdownElements - title", () => {
     expect(title).toBeNull();
   });
 });
+
+describe("extractMarkdownElements - links", () => {
+  test("should extract markdown links with text and line numbers", () => {
+    const content = `# Guide
+[Getting Started](./getting-started.md)
+Some text
+[API Reference](../api/reference.md)`;
+
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([
+      {
+        url: "./getting-started.md",
+        text: "Getting Started",
+        line: 2,
+        remote: false,
+      },
+      {
+        url: "../api/reference.md",
+        text: "API Reference",
+        line: 4,
+        remote: false,
+      },
+    ]);
+  });
+
+  test("should flag remote links with remote: true", () => {
+    const content = `[Local](./local.md)
+[Remote](https://example.com/page)
+[HTTP](http://example.com/other)`;
+
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([
+      { url: "./local.md", text: "Local", line: 1, remote: false },
+      {
+        url: "https://example.com/page",
+        text: "Remote",
+        line: 2,
+        remote: true,
+      },
+      {
+        url: "http://example.com/other",
+        text: "HTTP",
+        line: 3,
+        remote: true,
+      },
+    ]);
+  });
+
+  test("should extract HTML anchor links", () => {
+    const content = `Some text
+<a href="./page.md">Link Text</a>
+More text
+<a href="https://example.com">External</a>`;
+
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([]);
+  });
+
+  test("should handle links with fragments", () => {
+    const content = `[Section](./page.md#section)
+[Fragment Only](#heading)`;
+
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([
+      {
+        url: "./page.md#section",
+        text: "Section",
+        line: 1,
+        remote: false,
+      },
+      { url: "#heading", text: "Fragment Only", line: 2, remote: false },
+    ]);
+  });
+
+  test("should handle links with empty text", () => {
+    const content = "[](./empty-text.md)";
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([
+      { url: "./empty-text.md", text: null, line: 1, remote: false },
+    ]);
+  });
+
+  test("should return empty array when no links", () => {
+    const content = "# Just text\nNo links here.";
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([]);
+  });
+
+  test("should handle absolute local links", () => {
+    const content = "[Absolute](/docs/guide.md)";
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([
+      { url: "/docs/guide.md", text: "Absolute", line: 1, remote: false },
+    ]);
+  });
+
+  test("should handle mixed markdown and HTML links", () => {
+    const content = `[Markdown](./md-link.md)
+<a href="./html-link.md">HTML</a>`;
+
+    const { links } = extractMarkdownElements(content);
+    expect(links).toEqual([
+      { url: "./md-link.md", text: "Markdown", line: 1, remote: false },
+    ]);
+  });
+});

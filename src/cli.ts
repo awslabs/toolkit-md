@@ -18,6 +18,7 @@
 import { Command } from "commander";
 import {
   createAskCommand,
+  createCheckCommand,
   createMapCommand,
   createMcpCommand,
   createReviewCommand,
@@ -40,6 +41,7 @@ program
   .addCommand(createReviewCommand())
   .addCommand(createTranslateCommand())
   .addCommand(createAskCommand())
+  .addCommand(createCheckCommand())
   .addCommand(createMapCommand())
   .addCommand(createMcpCommand());
 

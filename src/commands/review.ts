@@ -24,15 +24,18 @@ import {
   DefaultBedrockClient,
   type FileDiff,
 } from "../ai/index.js";
+import { checkNode } from "../check/index.js";
 import {
-  CONFIG_IMAGE_BASE_PATH,
   CONFIG_INCLUDE_IMAGES,
   CONFIG_MAX_IMAGE_SIZE,
   CONFIG_MAX_IMAGES,
+  CONFIG_REVIEW_CHECK,
   CONFIG_REVIEW_DIFF_CONTEXT,
   CONFIG_REVIEW_DIFF_FILE,
   CONFIG_REVIEW_INSTRUCTIONS,
   CONFIG_REVIEW_SUMMARY_PATH,
+  CONFIG_STATIC_DIR,
+  CONFIG_STATIC_PREFIX,
   ConfigManager,
 } from "../config/index.js";
 import {
@@ -71,10 +74,12 @@ export function createReviewCommand(): Command {
   utils.optionForConfigSchema(command, CONFIG_REVIEW_INSTRUCTIONS);
   utils.optionForConfigSchema(command, CONFIG_REVIEW_DIFF_FILE);
   utils.optionForConfigSchema(command, CONFIG_REVIEW_DIFF_CONTEXT);
+  utils.optionForConfigSchema(command, CONFIG_REVIEW_CHECK);
   utils.optionForConfigSchema(command, CONFIG_INCLUDE_IMAGES);
-  utils.optionForConfigSchema(command, CONFIG_IMAGE_BASE_PATH);
   utils.optionForConfigSchema(command, CONFIG_MAX_IMAGES);
   utils.optionForConfigSchema(command, CONFIG_MAX_IMAGE_SIZE);
+  utils.optionForConfigSchema(command, CONFIG_STATIC_PREFIX);
+  utils.optionForConfigSchema(command, CONFIG_STATIC_DIR);
 
   return command;
 }
@@ -141,7 +146,8 @@ async function executeAction(
   const contentDir = utils.getContentDirWithTarget(config, content);
 
   const includeImages = config.get<boolean>("ai.includeImages");
-  const imageBasePath = utils.getImageBasePath(config);
+  const staticPrefix = config.get<string | undefined>("staticPrefix");
+  const staticDir = utils.getStaticDir(config);
   const maxImages = config.get<number>("ai.maxImages");
   const maxImageSize = config.get<number>("ai.maxImageSize");
 
@@ -188,6 +194,11 @@ async function executeAction(
     5,
   );
 
+  const reviewCheck = config.get<boolean>("ai.review.runChecks");
+  const checkOpts = reviewCheck
+    ? utils.getCheckConfig(config, contentDir, utils.getContentDir(config))
+    : null;
+
   const diffs: FileDiff[] = [];
 
   for (const node of nodes) {
@@ -206,6 +217,10 @@ async function executeAction(
         }
       }
 
+      const checkIssues = checkOpts
+        ? (await checkNode(node, checkOpts))?.issues
+        : undefined;
+
       const prompt = await buildReviewPrompt(
         tree,
         node,
@@ -213,11 +228,13 @@ async function executeAction(
         contextStrategy,
         styleGuides,
         exemplars,
-        imageBasePath,
         instructions,
         includeImages,
         maxImages,
         maxImageSize,
+        staticPrefix,
+        staticDir,
+        checkIssues,
       );
 
       const { response } = await utils.withSpinner(

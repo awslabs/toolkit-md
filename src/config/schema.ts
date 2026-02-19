@@ -164,6 +164,17 @@ export const CONFIG_REVIEW_DIFF_CONTEXT = withConfig(
   "TKMD_AI_REVIEW_DIFF_CONTEXT",
 );
 
+export const CONFIG_REVIEW_CHECK = withConfig(
+  z
+    .boolean()
+    .describe(
+      "Run content checks (lint, links, images) and include results in the review prompt",
+    )
+    .default(true),
+  "reviewCheck",
+  "TKMD_AI_REVIEW_CHECK",
+);
+
 export const CONFIG_FORCE_TRANSLATION = withConfig(
   z
     .boolean()
@@ -239,15 +250,6 @@ export const CONFIG_INCLUDE_IMAGES = withConfig(
   "TKMD_AI_INCLUDE_IMAGES",
 );
 
-export const CONFIG_IMAGE_BASE_PATH = withConfig(
-  z
-    .string()
-    .describe("Base path for resolving absolute image paths")
-    .optional(),
-  "imageBasePath",
-  "TKMD_AI_IMAGE_BASE_PATH",
-);
-
 export const CONFIG_MAX_IMAGES = withConfig(
   z
     .union([
@@ -273,10 +275,85 @@ export const CONFIG_MAX_IMAGE_SIZE = withConfig(
 );
 
 // Define the configuration schema using Zod's native description functionality
+
+export const CONFIG_CHECK_LINK_TIMEOUT = withConfig(
+  z
+    .union([
+      z.number().positive("Link timeout must be greater than 0"),
+      z.string().transform((val) => Number.parseInt(val, 10)),
+    ])
+    .describe("Timeout in milliseconds for HTTP link checks")
+    .default(5000),
+  "linkTimeout",
+  "TKMD_CHECK_LINK_TIMEOUT",
+);
+
+export const CONFIG_CHECK_SKIP_EXTERNAL_LINKS = withConfig(
+  z
+    .boolean()
+    .describe("Skip validation of external HTTP/HTTPS links")
+    .default(false),
+  "skipExternalLinks",
+  "TKMD_CHECK_SKIP_EXTERNAL_LINKS",
+);
+
+export const CONFIG_CHECK_LINT_IGNORE_RULES = withConfig(
+  z
+    .array(z.string())
+    .describe("Markdownlint rule names or aliases to ignore")
+    .default([]),
+  "ignoreRule",
+  undefined,
+  "TKMD_CHECK_LINT_IGNORE_RULE",
+);
+
+export const CONFIG_CHECK_MIN_SEVERITY = withConfig(
+  z
+    .enum(["error", "warning"])
+    .describe("Minimum severity level to report")
+    .default("warning"),
+  "minSeverity",
+  "TKMD_CHECK_MIN_SEVERITY",
+);
+
+export const CONFIG_CHECK_CATEGORIES = withConfig(
+  z
+    .array(z.enum(["lint", "link", "image"]))
+    .describe("Check categories to run")
+    .default(["lint", "link", "image"]),
+  "category",
+  undefined,
+  "TKMD_CHECK_CATEGORY",
+);
+
+export const CONFIG_STATIC_PREFIX = withConfig(
+  z
+    .string()
+    .describe(
+      "URL prefix that indicates a link points to a file in the static directory",
+    )
+    .optional(),
+  "staticPrefix",
+  "TKMD_STATIC_PREFIX",
+);
+
+export const CONFIG_STATIC_DIR = withConfig(
+  z
+    .string()
+    .describe(
+      "Directory relative to the cwd where static assets are stored, used with staticPrefix",
+    )
+    .optional(),
+  "staticDir",
+  "TKMD_STATIC_DIR",
+);
+
 export const configSchema = z.object({
   contentDir: CONFIG_CONTENT_DIR,
   language: CONFIG_LANGUAGE,
   defaultLanguage: CONFIG_DEFAULT_LANGUAGE,
+  staticPrefix: CONFIG_STATIC_PREFIX,
+  staticDir: CONFIG_STATIC_DIR,
   ai: z.object({
     model: CONFIG_MODEL,
     maxTokens: CONFIG_MAX_TOKENS,
@@ -289,7 +366,6 @@ export const configSchema = z.object({
     exemplars: CONFIG_EXEMPLARS,
     styleGuides: CONFIG_STYLE_GUIDES,
     includeImages: CONFIG_INCLUDE_IMAGES,
-    imageBasePath: CONFIG_IMAGE_BASE_PATH,
     maxImages: CONFIG_MAX_IMAGES,
     maxImageSize: CONFIG_MAX_IMAGE_SIZE,
     review: z.object({
@@ -297,12 +373,24 @@ export const configSchema = z.object({
       instructions: CONFIG_REVIEW_INSTRUCTIONS,
       diffFile: CONFIG_REVIEW_DIFF_FILE,
       diffContext: CONFIG_REVIEW_DIFF_CONTEXT,
+      runChecks: CONFIG_REVIEW_CHECK,
     }),
     translation: z.object({
       force: CONFIG_FORCE_TRANSLATION,
       check: CONFIG_CHECK_TRANSLATION,
       directory: CONFIG_TRANSLATION_DIR,
       skipFileSuffix: CONFIG_TRANSLATION_SKIP_SUFFIX,
+    }),
+  }),
+  check: z.object({
+    minSeverity: CONFIG_CHECK_MIN_SEVERITY,
+    categories: CONFIG_CHECK_CATEGORIES,
+    links: z.object({
+      timeout: CONFIG_CHECK_LINK_TIMEOUT,
+      skipExternal: CONFIG_CHECK_SKIP_EXTERNAL_LINKS,
+    }),
+    lint: z.object({
+      ignoreRules: CONFIG_CHECK_LINT_IGNORE_RULES,
     }),
   }),
 });

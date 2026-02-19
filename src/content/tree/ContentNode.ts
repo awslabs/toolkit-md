@@ -55,6 +55,8 @@ export interface ContentNode {
   hash: string | null;
   /** Image references extracted from the content (empty for directories) */
   images: ImageReference[];
+  /** Link references extracted from the content (empty for directories) */
+  links: LinkReference[];
   /** Fenced code blocks extracted from the content (empty for directories) */
   codeBlocks: CodeBlockReference[];
 }
@@ -70,6 +72,20 @@ export interface ImageReference {
   /** The 1-based line number where the image appears in the source file */
   line: number;
   /** Whether the image is a remote URL (http/https) */
+  remote: boolean;
+}
+
+/**
+ * Represents a link reference found in markdown content.
+ */
+export interface LinkReference {
+  /** The URL or path of the link target */
+  url: string;
+  /** The visible link text, if provided */
+  text: string | null;
+  /** The 1-based line number where the link appears in the source file */
+  line: number;
+  /** Whether the link is a remote URL (http/https) */
   remote: boolean;
 }
 

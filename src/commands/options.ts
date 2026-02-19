@@ -16,6 +16,11 @@
 
 import type { Command } from "commander";
 import {
+  CONFIG_CHECK_CATEGORIES,
+  CONFIG_CHECK_LINK_TIMEOUT,
+  CONFIG_CHECK_LINT_IGNORE_RULES,
+  CONFIG_CHECK_MIN_SEVERITY,
+  CONFIG_CHECK_SKIP_EXTERNAL_LINKS,
   CONFIG_CONTENT_DIR,
   CONFIG_CONTEXT_STRATEGY,
   CONFIG_DEFAULT_LANGUAGE,
@@ -25,6 +30,8 @@ import {
   CONFIG_MODEL,
   CONFIG_RATE_LIMIT_REQUESTS,
   CONFIG_RATE_LIMIT_TOKENS,
+  CONFIG_STATIC_DIR,
+  CONFIG_STATIC_PREFIX,
   CONFIG_STYLE_GUIDES,
   CONFIG_WRITE,
 } from "../config/index.js";
@@ -81,4 +88,18 @@ export const DEFAULT_CONTENT_STRATEGY = "everything";
 
 export function contextOptions(command: Command) {
   utils.optionForConfigSchema(command, CONFIG_CONTEXT_STRATEGY);
+}
+
+export function contentDirOption(command: Command) {
+  utils.optionForConfigSchema(command, CONFIG_CONTENT_DIR);
+}
+
+export function checkOptions(command: Command) {
+  utils.optionForConfigSchema(command, CONFIG_CHECK_LINK_TIMEOUT);
+  utils.optionForConfigSchema(command, CONFIG_CHECK_SKIP_EXTERNAL_LINKS);
+  utils.optionForConfigSchema(command, CONFIG_CHECK_LINT_IGNORE_RULES);
+  utils.optionForConfigSchema(command, CONFIG_CHECK_MIN_SEVERITY);
+  utils.optionForConfigSchema(command, CONFIG_CHECK_CATEGORIES);
+  utils.optionForConfigSchema(command, CONFIG_STATIC_PREFIX);
+  utils.optionForConfigSchema(command, CONFIG_STATIC_DIR);
 }
