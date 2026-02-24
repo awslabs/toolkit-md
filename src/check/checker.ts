@@ -91,6 +91,8 @@ export async function checkNode(
           options.staticPrefix,
           options.staticDir,
           options.links.ignorePatterns,
+          options.contentTree,
+          node.path,
         )
       : [],
     isCategoryEnabled("image", options.categories)

@@ -364,6 +364,115 @@ export class ContentTree {
   getNode(nodePath: string): ContentNode | null {
     return this.nodeMap.get(nodePath) || null;
   }
+  /**
+   * Resolves a link URL to a content node in the tree.
+   *
+   * Attempts multiple resolution strategies to find a matching node:
+   * 1. Direct logical path lookup (stripping extension and language suffix)
+   * 2. Index file lookup for directory-style links
+   *
+   * @param url - The link URL to resolve (e.g., './pods', '/advanced/secrets/', '../basics/introduction.md')
+   * @param fromNodePath - The logical path of the node containing the link, used for relative resolution
+   * @returns The matching content node if found, null otherwise
+   */
+  resolveLink(url: string, fromNodePath: string): ContentNode | null {
+    const cleanUrl = this.stripFragmentAndQuery(url);
+    if (!cleanUrl) {
+      return null;
+    }
+
+    const resolved = this.resolveRelativePath(cleanUrl, fromNodePath);
+    const candidates = this.buildLookupCandidates(resolved);
+
+    for (const candidate of candidates) {
+      const node = this.nodeMap.get(candidate);
+      if (node) {
+        if (node.isDirectory) {
+          const indexNode = this.nodeMap.get(path.join(candidate, "index"));
+          if (indexNode) {
+            return indexNode;
+          }
+          continue;
+        }
+        return node;
+      }
+    }
+
+    return null;
+  }
+
+  private stripFragmentAndQuery(url: string): string {
+    let clean = url;
+    const fragmentIndex = clean.indexOf("#");
+    if (fragmentIndex >= 0) {
+      clean = clean.substring(0, fragmentIndex);
+    }
+    const queryIndex = clean.indexOf("?");
+    if (queryIndex >= 0) {
+      clean = clean.substring(0, queryIndex);
+    }
+    return clean;
+  }
+
+  private resolveRelativePath(url: string, fromNodePath: string): string {
+    if (url.startsWith("/")) {
+      return url.substring(1);
+    }
+
+    const fromDir = fromNodePath ? path.dirname(fromNodePath) : "";
+    const joined = fromDir ? path.join(fromDir, url) : url;
+    const normalized = path.normalize(joined);
+    if (normalized.startsWith("/")) {
+      return normalized.substring(1);
+    }
+    return normalized;
+  }
+
+  private buildLookupCandidates(resolved: string): string[] {
+    let normalized = resolved.replace(/\\/g, "/");
+    if (normalized.endsWith("/")) {
+      normalized = normalized.slice(0, -1);
+    }
+    if (normalized === "." || normalized === "" || normalized === "/") {
+      return [""];
+    }
+
+    const candidates: string[] = [];
+
+    const withoutExt = this.stripMarkdownExtension(normalized);
+    const withoutLang = this.stripLanguageSuffix(withoutExt);
+
+    candidates.push(withoutLang);
+    if (withoutLang !== withoutExt) {
+      candidates.push(withoutExt);
+    }
+    if (withoutExt !== normalized) {
+      candidates.push(normalized);
+    }
+
+    candidates.push(path.join(withoutLang, "index"));
+    candidates.push(path.join(normalized, "index"));
+
+    return candidates;
+  }
+
+  private stripMarkdownExtension(p: string): string {
+    if (p.endsWith(".md") || p.endsWith(".mdx")) {
+      return p.substring(0, p.lastIndexOf("."));
+    }
+    return p;
+  }
+
+  private stripLanguageSuffix(p: string): string {
+    const parts = p.split("/");
+    const last = parts[parts.length - 1];
+    const dotParts = last.split(".");
+    if (dotParts.length > 1 && dotParts[dotParts.length - 1].length <= 5) {
+      parts[parts.length - 1] = dotParts.slice(0, -1).join(".");
+      return parts.join("/");
+    }
+    return p;
+  }
 
   /**
    * Gets all nodes in the tree.

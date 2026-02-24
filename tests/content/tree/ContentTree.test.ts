@@ -421,6 +421,100 @@ Some text
     expect(treeMap).not.toContain("└── ./");
   });
 
+  describe("resolveLink", () => {
+    test("should resolve relative link to sibling file", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+      tree.add("docs/tutorial.md", "# Tutorial");
+
+      const result = tree.resolveLink("./tutorial", "docs/guide");
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe("tutorial");
+    });
+
+    test("should resolve relative link with .md extension", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+      tree.add("docs/tutorial.md", "# Tutorial");
+
+      const result = tree.resolveLink("./tutorial.md", "docs/guide");
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe("tutorial");
+    });
+
+    test("should resolve absolute link from root", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+
+      const result = tree.resolveLink("/docs/guide", "other/page");
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe("guide");
+    });
+
+    test("should resolve parent-relative link with ../", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+      tree.add("api/reference.md", "# Reference");
+
+      const result = tree.resolveLink("../api/reference", "docs/guide");
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe("reference");
+    });
+
+    test("should resolve directory link to index file", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/index.md", "# Docs Index");
+      tree.add("docs/guide.md", "# Guide");
+
+      const result = tree.resolveLink("/docs/", "other/page");
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe("index");
+    });
+
+    test("should resolve link with fragment", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+
+      const result = tree.resolveLink("./guide#section", "docs/other");
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe("guide");
+    });
+
+    test("should return null for non-existent link", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+
+      const result = tree.resolveLink("./missing", "docs/guide");
+      expect(result).toBeNull();
+    });
+
+    test("should return null for empty url after stripping fragment", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+
+      const result = tree.resolveLink("#section", "docs/guide");
+      expect(result).toBeNull();
+    });
+
+    test("should resolve link with language suffix in url", () => {
+      const provider = new MockProvider();
+      const tree = new ContentTree(provider);
+      tree.add("docs/guide.md", "# Guide");
+
+      const result = tree.resolveLink("./guide.en.md", "docs/other");
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe("guide");
+    });
+  });
+
   describe("Integration Tests", () => {
     test("should build complex tree structure", () => {
       const provider = new MockProvider();

@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { checkLinks } from "../../src/check/linkChecker.js";
+import { ContentTree, MockProvider } from "../../src/content/index.js";
 import type { LinkReference } from "../../src/content/tree/ContentNode.js";
 
 describe("checkLinks", () => {
@@ -331,5 +332,143 @@ describe("checkLinks", () => {
       [],
     );
     expect(issues).toHaveLength(1);
+  });
+
+  test("should resolve link via content tree before filesystem", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+    tree.add("docs/guide.md", "# Guide");
+    tree.add("docs/tutorial.md", "# Tutorial");
+
+    const links: LinkReference[] = [
+      { url: "./tutorial", text: "Tutorial", line: 1, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      [],
+      tree,
+      "docs/guide",
+    );
+    expect(issues).toEqual([]);
+  });
+
+  test("should resolve absolute link via content tree", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+    tree.add("basics/pods.md", "# Pods");
+
+    const links: LinkReference[] = [
+      { url: "/basics/pods", text: "Pods", line: 1, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      [],
+      tree,
+      "advanced/secrets/index",
+    );
+    expect(issues).toEqual([]);
+  });
+
+  test("should fall back to filesystem when tree cannot resolve", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+    tree.add("docs/guide.md", "# Guide");
+
+    const links: LinkReference[] = [
+      { url: "./existing.md", text: "Existing", line: 1, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      [],
+      tree,
+      "docs/guide",
+    );
+    expect(issues).toEqual([]);
+  });
+
+  test("should report broken link when neither tree nor filesystem resolves", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+    tree.add("docs/guide.md", "# Guide");
+
+    const links: LinkReference[] = [
+      { url: "./totally-missing", text: "Missing", line: 5, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      [],
+      tree,
+      "docs/guide",
+    );
+    expect(issues).toHaveLength(1);
+    expect(issues[0].rule).toBe("broken-link");
+  });
+
+  test("should resolve link with .md extension via content tree", async () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+    tree.add("docs/guide.md", "# Guide");
+    tree.add("docs/tutorial.md", "# Tutorial");
+
+    const links: LinkReference[] = [
+      { url: "./tutorial.md", text: "Tutorial", line: 1, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      [],
+      tree,
+      "docs/guide",
+    );
+    expect(issues).toEqual([]);
+  });
+
+  test("should work without content tree (backward compatible)", async () => {
+    const links: LinkReference[] = [
+      { url: "./existing.md", text: "Existing", line: 1, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+    );
+    expect(issues).toEqual([]);
   });
 });

@@ -78,10 +78,10 @@ async function executeAction(
 
   const nodes = tree.getFlattenedTree();
 
-  const result = await checkAll(
-    nodes,
-    utils.getCheckConfig(config, contentDir, rootContentDir),
-  );
+  const result = await checkAll(nodes, {
+    ...utils.getCheckConfig(config, contentDir, rootContentDir),
+    contentTree: tree,
+  });
 
   printResults(result, contentDir);
 

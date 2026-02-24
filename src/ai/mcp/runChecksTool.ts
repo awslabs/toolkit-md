@@ -85,6 +85,7 @@ export function registerRunChecksTool(
 
       const checkOpts: CheckOptions = {
         ...utils.getCheckConfig(config, contentDir, contentDir),
+        contentTree: tree,
         ...(minSeverity && { minSeverity }),
         ...(categories && { categories }),
       };

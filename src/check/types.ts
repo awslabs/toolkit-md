@@ -22,6 +22,8 @@
  * command and MCP tool.
  */
 
+import type { ContentTree } from "../content/tree/ContentTree.js";
+
 export type CheckSeverity = "error" | "warning";
 
 export type CheckCategory = "lint" | "link" | "image";
@@ -43,6 +45,7 @@ export interface CheckIssue {
 export interface CheckOptions {
   contentDir: string;
   rootContentDir?: string;
+  contentTree?: ContentTree;
   links: {
     timeout: number;
     skipExternal: boolean;

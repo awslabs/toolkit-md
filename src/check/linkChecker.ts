@@ -25,11 +25,15 @@
 import { access } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { LinkReference } from "../content/tree/ContentNode.js";
+import type { ContentTree } from "../content/tree/ContentTree.js";
 import { resolveStaticPath } from "../content/utils/staticPathUtils.js";
 import type { CheckIssue } from "./types.js";
 
 /**
  * Checks all links in a file for validity.
+ *
+ * Links are first resolved against the content tree (if provided). If the
+ * tree cannot resolve the link, it falls back to filesystem resolution.
  *
  * @param filePath - Path to the file being checked (used for reporting and relative resolution)
  * @param links - Link references extracted from the content
@@ -38,6 +42,9 @@ import type { CheckIssue } from "./types.js";
  * @param skipExternal - Whether to skip validation of external HTTP(S) links
  * @param staticPrefix - Optional URL prefix indicating a link targets the static directory
  * @param staticDir - Optional directory for resolving links that match the static prefix
+ * @param ignorePatterns - Regex patterns for links to skip
+ * @param contentTree - Optional content tree for logical path resolution
+ * @param nodeLogicalPath - Logical path of the node in the content tree (used for relative resolution)
  * @returns Array of check issues for broken or unreachable links
  */
 export async function checkLinks(
@@ -49,6 +56,8 @@ export async function checkLinks(
   staticPrefix?: string,
   staticDir?: string,
   ignorePatterns: string[] = [],
+  contentTree?: ContentTree,
+  nodeLogicalPath?: string,
 ): Promise<CheckIssue[]> {
   const issues: CheckIssue[] = [];
   const fileDir = dirname(filePath);
@@ -79,6 +88,8 @@ export async function checkLinks(
         contentDir,
         staticPrefix,
         staticDir,
+        contentTree,
+        nodeLogicalPath,
       );
       if (issue) {
         issues.push(issue);
@@ -105,10 +116,22 @@ async function checkLocalLink(
   contentDir: string,
   staticPrefix?: string,
   staticDir?: string,
+  contentTree?: ContentTree,
+  nodeLogicalPath?: string,
 ): Promise<CheckIssue | null> {
   const urlWithoutFragment = stripFragment(link.url);
   if (urlWithoutFragment === "") {
     return null;
+  }
+
+  if (contentTree && nodeLogicalPath !== undefined) {
+    const resolved = contentTree.resolveLink(
+      urlWithoutFragment,
+      nodeLogicalPath,
+    );
+    if (resolved) {
+      return null;
+    }
   }
 
   let resolvedPath: string;
