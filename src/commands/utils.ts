@@ -195,6 +195,7 @@ export function getCheckConfig(
     links: {
       timeout: config.get<number>("check.links.timeout"),
       skipExternal: config.get<boolean>("check.links.skipExternal"),
+      ignorePatterns: config.get<string[]>("check.links.ignorePatterns"),
     },
     lint: {
       ignoreRules: config.get<string[]>("check.lint.ignoreRules"),

@@ -90,6 +90,7 @@ export async function checkNode(
           options.links.skipExternal,
           options.staticPrefix,
           options.staticDir,
+          options.links.ignorePatterns,
         )
       : [],
     isCategoryEnabled("image", options.categories)

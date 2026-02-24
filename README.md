@@ -168,11 +168,12 @@ Toolkit for Markdown supports configuration through:
 | `check.categories`            | `--category`         | `TKMD_CHECK_CATEGORY_*`                 | Check categories to run (lint, link, image), can be specified multiple times                  | `["lint", "link", "image"]`                          |
 | `check.links.timeout`          | `--link-timeout`     | `TKMD_CHECK_LINK_TIMEOUT`              | Timeout in milliseconds for HTTP link and image checks                                       | `5000`                                               |
 | `check.links.skipExternal`     | `--skip-external-links` | `TKMD_CHECK_SKIP_EXTERNAL_LINKS`    | Skip validation of external HTTP/HTTPS links and images                                      | `false`                                              |
+| `check.links.ignorePatterns`   | `--ignore-link-pattern` | `TKMD_CHECK_LINK_IGNORE_PATTERN_*`  | Regex patterns for URLs to ignore during link checking, can be specified multiple times       | `[]`                                                 |
 | `check.lint.ignoreRules`       | `--ignore-rule`      | `TKMD_CHECK_LINT_IGNORE_RULE_*`        | Markdownlint rule names or aliases to ignore, can be specified multiple times                 | `[]`                                                 |
 | `staticPrefix`                 | `--static-prefix`    | `TKMD_STATIC_PREFIX`                   | URL prefix indicating a link points to a file in the static directory                        | `undefined`                                          |
 | `staticDir`                    | `--static-dir`       | `TKMD_STATIC_DIR`                      | Directory relative to the cwd where static assets are stored, used with staticPrefix         | `undefined`                                          |
 
-**Note:** For array values (exemplars, styleGuides, ignoreRules), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
+**Note:** For array values (exemplars, styleGuides, ignoreRules, ignorePatterns), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
 
 ### Configuration File Format
 
@@ -210,7 +211,8 @@ Create a `.toolkit-mdrc` file in JSON format:
     "categories": ["lint", "link", "image"],
     "links": {
       "timeout": 5000,
-      "skipExternal": false
+      "skipExternal": false,
+      "ignorePatterns": ["^https://example\\.com/.*"]
     },
     "lint": {
       "ignoreRules": ["MD013"]

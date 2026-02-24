@@ -296,6 +296,15 @@ export const CONFIG_CHECK_SKIP_EXTERNAL_LINKS = withConfig(
   "skipExternalLinks",
   "TKMD_CHECK_SKIP_EXTERNAL_LINKS",
 );
+export const CONFIG_CHECK_LINK_IGNORE_PATTERNS = withConfig(
+  z
+    .array(z.string())
+    .describe("Regex patterns for URLs to ignore during link checking")
+    .default([]),
+  "ignoreLinkPattern",
+  undefined,
+  "TKMD_CHECK_LINK_IGNORE_PATTERN",
+);
 
 export const CONFIG_CHECK_LINT_IGNORE_RULES = withConfig(
   z
@@ -388,6 +397,7 @@ export const configSchema = z.object({
     links: z.object({
       timeout: CONFIG_CHECK_LINK_TIMEOUT,
       skipExternal: CONFIG_CHECK_SKIP_EXTERNAL_LINKS,
+      ignorePatterns: CONFIG_CHECK_LINK_IGNORE_PATTERNS,
     }),
     lint: z.object({
       ignoreRules: CONFIG_CHECK_LINT_IGNORE_RULES,

@@ -48,12 +48,18 @@ export async function checkLinks(
   skipExternal: boolean,
   staticPrefix?: string,
   staticDir?: string,
+  ignorePatterns: string[] = [],
 ): Promise<CheckIssue[]> {
   const issues: CheckIssue[] = [];
   const fileDir = dirname(filePath);
+  const compiledPatterns = ignorePatterns.map((p) => new RegExp(p));
 
   for (const link of links) {
     if (isFragmentOnly(link.url)) {
+      continue;
+    }
+
+    if (compiledPatterns.some((re) => re.test(link.url))) {
       continue;
     }
 

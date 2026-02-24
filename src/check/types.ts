@@ -46,6 +46,7 @@ export interface CheckOptions {
   links: {
     timeout: number;
     skipExternal: boolean;
+    ignorePatterns: string[];
   };
   lint: {
     ignoreRules: string[];
