@@ -15,54 +15,69 @@
  */
 
 /**
- * @fileoverview Markdown linting checker using markdownlint.
+ * @fileoverview Markdown linting checker using remark-lint.
  *
- * Validates markdown content against markdownlint rules, with support
- * for ignoring specific rules by name or alias.
+ * Validates markdown content against remark-lint rules from the
+ * recommended and consistent presets, with support for ignoring
+ * specific rules by name.
  */
 
-import { lint } from "markdownlint/promise";
+import { remark } from "remark";
+import remarkDirective from "remark-directive";
+import remarkFrontmatter from "remark-frontmatter";
+import remarkLintCodeBlockStyle from "remark-lint-code-block-style";
+import remarkLintHeadingStyle from "remark-lint-heading-style";
+import remarkLintNoUndefinedReferences from "remark-lint-no-undefined-references";
+import remarkPresetLintConsistent from "remark-preset-lint-consistent";
+import remarkPresetLintRecommended from "remark-preset-lint-recommended";
+import type { VFile } from "vfile";
+import remarkCodeDirective from "../content/utils/remarkCodeDirective.js";
 import type { CheckIssue } from "./types.js";
 
 /**
- * Runs markdownlint on the given content and returns any issues found.
+ * Runs remark-lint on the given content and returns any issues found.
  *
  * @param filePath - Path to the file being checked (used for reporting)
  * @param content - Raw markdown content to lint
- * @param ignoreRules - Rule names or aliases to disable
- * @returns Array of check issues found by markdownlint
+ * @param ignoreRules - Rule names to suppress (without the `remark-lint-` prefix)
+ * @returns Array of check issues found by remark-lint
  */
 export async function checkLint(
   filePath: string,
   content: string,
   ignoreRules: string[],
 ): Promise<CheckIssue[]> {
-  const config: Record<string, boolean> = {
-    default: true,
-    MD033: false,
-    MD013: false,
-  };
-  for (const rule of ignoreRules) {
-    config[rule] = false;
-  }
+  const processor = remark()
+    .use(remarkFrontmatter)
+    .use(remarkDirective)
+    .use(remarkCodeDirective)
+    .use(remarkPresetLintConsistent)
+    .use(remarkPresetLintRecommended)
+    .use(remarkLintNoUndefinedReferences, false)
+    .use(remarkLintCodeBlockStyle, false)
+    .use(remarkLintHeadingStyle, "atx");
 
-  const results = await lint({
-    strings: { [filePath]: content },
-    config,
+  const file: VFile = await processor.process({
+    path: filePath,
+    value: content,
   });
 
-  const fileResults = results[filePath];
-  if (!fileResults) {
-    return [];
-  }
+  const ignoreSet = new Set(
+    ignoreRules.map((r) => r.replace(/^remark-lint-/, "")),
+  );
 
-  return fileResults.map((result) => ({
-    file: filePath,
-    line: result.lineNumber,
-    column: 1,
-    severity: "warning" as const,
-    category: "lint" as const,
-    rule: result.ruleNames.join("/"),
-    message: result.ruleDescription,
-  }));
+  return file.messages
+    .filter((msg) => {
+      const ruleId = msg.ruleId ?? "";
+      return !ignoreSet.has(ruleId);
+    })
+    .map((msg) => ({
+      file: filePath,
+      line: msg.line ?? 1,
+      column: msg.column ?? 1,
+      severity: "warning" as const,
+      category: "lint" as const,
+      rule: msg.ruleId ?? "unknown",
+      message: msg.reason,
+    }));
 }

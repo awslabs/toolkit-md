@@ -23,4 +23,5 @@
 export * from "./diffUtils.js";
 export * from "./languageUtils.js";
 export * from "./markdownUtils.js";
+export { default as remarkCodeDirective } from "./remarkCodeDirective.js";
 export * from "./staticPathUtils.js";

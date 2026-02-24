@@ -106,7 +106,7 @@ describe("checkAll", () => {
     const nodes = [
       createTestNode({
         filePath: join(tempDir, "docs", "bad.md"),
-        content: "#Bad Heading\n",
+        content: "1) Hello, _Jupiter_ and *Neptune*!\n",
       }),
     ];
 
@@ -175,7 +175,7 @@ describe("checkAll", () => {
   });
 
   test("should respect ignoreRules option", async () => {
-    const content = "#Bad Heading\n";
+    const content = "1) Hello, _Jupiter_ and *Neptune*!\n";
     const nodes = [
       createTestNode({
         filePath: join(tempDir, "docs", "test.md"),
@@ -187,7 +187,7 @@ describe("checkAll", () => {
 
     const resultWith = await checkAll(nodes, {
       ...defaultOptions,
-      lint: { ignoreRules: ["MD018", "MD041"] },
+      lint: { ignoreRules: ["ordered-list-marker-style", "emphasis-marker"] },
     });
 
     expect(resultWithout.totalWarnings).toBeGreaterThan(
@@ -199,7 +199,7 @@ describe("checkAll", () => {
     const nodes = [
       createTestNode({
         filePath: join(tempDir, "docs", "test.md"),
-        content: "#Bad Heading\n\n[Missing](./nope.md)\n",
+        content: "1) Hello, _Jupiter_ and *Neptune*!\n\n[Missing](./nope.md)\n",
         links: [{ url: "./nope.md", text: "Missing", line: 3, remote: false }],
       }),
     ];
@@ -234,7 +234,7 @@ describe("checkAll", () => {
     const nodes = [
       createTestNode({
         filePath: join(tempDir, "docs", "test.md"),
-        content: "#Bad Heading\n\n[Missing](./nope.md)\n",
+        content: "1) Hello, _Jupiter_ and *Neptune*!\n\n[Missing](./nope.md)\n",
         links: [{ url: "./nope.md", text: "Missing", line: 3, remote: false }],
       }),
     ];
@@ -255,7 +255,7 @@ describe("checkAll", () => {
     const nodes = [
       createTestNode({
         filePath: join(tempDir, "docs", "test.md"),
-        content: "#Bad Heading\n\n[Missing](./nope.md)\n",
+        content: "1) Hello, _Jupiter_ and *Neptune*!\n\n[Missing](./nope.md)\n",
         links: [{ url: "./nope.md", text: "Missing", line: 3, remote: false }],
       }),
     ];
@@ -281,7 +281,7 @@ describe("checkAll", () => {
     const nodes = [
       createTestNode({
         filePath: join(tempDir, "docs", "test.md"),
-        content: "#Bad Heading\n\n[Missing](./nope.md)\n",
+        content: "1) Hello, _Jupiter_ and *Neptune*!\n\n[Missing](./nope.md)\n",
         links: [{ url: "./nope.md", text: "Missing", line: 3, remote: false }],
       }),
     ];
