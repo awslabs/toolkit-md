@@ -93,4 +93,13 @@ describe("checkLint", () => {
     );
     expect(undefinedRefIssue).toBeUndefined();
   });
+
+  test("should not report code-block-style", async () => {
+    const content = "# Heading\n\n    indented code block\n";
+    const issues = await checkLint("/docs/code.md", content, []);
+    const codeBlockStyleIssue = issues.find(
+      (i) => i.rule === "code-block-style",
+    );
+    expect(codeBlockStyleIssue).toBeUndefined();
+  });
 });

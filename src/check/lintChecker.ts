@@ -25,11 +25,13 @@
 import { remark } from "remark";
 import remarkDirective from "remark-directive";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkLintCodeBlockStyle from "remark-lint-code-block-style";
 import remarkLintHeadingStyle from "remark-lint-heading-style";
 import remarkLintNoUndefinedReferences from "remark-lint-no-undefined-references";
 import remarkPresetLintConsistent from "remark-preset-lint-consistent";
 import remarkPresetLintRecommended from "remark-preset-lint-recommended";
 import type { VFile } from "vfile";
+import remarkCodeDirective from "../content/utils/remarkCodeDirective.js";
 import type { CheckIssue } from "./types.js";
 
 /**
@@ -48,9 +50,11 @@ export async function checkLint(
   const processor = remark()
     .use(remarkFrontmatter)
     .use(remarkDirective)
+    .use(remarkCodeDirective)
     .use(remarkPresetLintConsistent)
     .use(remarkPresetLintRecommended)
     .use(remarkLintNoUndefinedReferences, false)
+    .use(remarkLintCodeBlockStyle, false)
     .use(remarkLintHeadingStyle, "atx");
 
   const file: VFile = await processor.process({
