@@ -17,6 +17,7 @@
 import type { Command } from "commander";
 import {
   CONFIG_CHECK_CATEGORIES,
+  CONFIG_CHECK_LINK_IGNORE_PATTERNS,
   CONFIG_CHECK_LINK_TIMEOUT,
   CONFIG_CHECK_LINT_IGNORE_RULES,
   CONFIG_CHECK_MIN_SEVERITY,
@@ -97,6 +98,7 @@ export function contentDirOption(command: Command) {
 export function checkOptions(command: Command) {
   utils.optionForConfigSchema(command, CONFIG_CHECK_LINK_TIMEOUT);
   utils.optionForConfigSchema(command, CONFIG_CHECK_SKIP_EXTERNAL_LINKS);
+  utils.optionForConfigSchema(command, CONFIG_CHECK_LINK_IGNORE_PATTERNS);
   utils.optionForConfigSchema(command, CONFIG_CHECK_LINT_IGNORE_RULES);
   utils.optionForConfigSchema(command, CONFIG_CHECK_MIN_SEVERITY);
   utils.optionForConfigSchema(command, CONFIG_CHECK_CATEGORIES);

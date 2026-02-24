@@ -270,4 +270,66 @@ describe("checkLinks", () => {
     );
     expect(issues).toEqual([]);
   });
+
+  test("should skip links matching ignore patterns", async () => {
+    const links: LinkReference[] = [
+      { url: "./missing.md", text: "Missing", line: 1, remote: false },
+      {
+        url: "https://internal.example.com/page",
+        text: "Internal",
+        line: 2,
+        remote: true,
+      },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      ["missing\\.md$", "^https://internal\\.example\\.com"],
+    );
+    expect(issues).toEqual([]);
+  });
+
+  test("should still report links not matching ignore patterns", async () => {
+    const links: LinkReference[] = [
+      { url: "./missing.md", text: "Missing", line: 1, remote: false },
+      { url: "./also-missing.md", text: "Also", line: 2, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      ["also-missing"],
+    );
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toContain("missing.md");
+  });
+
+  test("should handle empty ignore patterns array", async () => {
+    const links: LinkReference[] = [
+      { url: "./missing.md", text: "Missing", line: 1, remote: false },
+    ];
+
+    const issues = await checkLinks(
+      join(tempDir, "docs", "test.md"),
+      links,
+      tempDir,
+      5000,
+      false,
+      undefined,
+      undefined,
+      [],
+    );
+    expect(issues).toHaveLength(1);
+  });
 });

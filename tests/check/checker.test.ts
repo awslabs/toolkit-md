@@ -54,7 +54,7 @@ describe("checkAll", () => {
 
     defaultOptions = {
       contentDir: tempDir,
-      links: { timeout: 5000, skipExternal: true },
+      links: { timeout: 5000, skipExternal: true, ignorePatterns: [] },
       lint: { ignoreRules: [] },
     };
   });
