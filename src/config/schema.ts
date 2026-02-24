@@ -309,7 +309,9 @@ export const CONFIG_CHECK_LINK_IGNORE_PATTERNS = withConfig(
 export const CONFIG_CHECK_LINT_IGNORE_RULES = withConfig(
   z
     .array(z.string())
-    .describe("Markdownlint rule names or aliases to ignore")
+    .describe(
+      "remark-lint rule names to ignore (without the remark-lint- prefix)",
+    )
     .default([]),
   "ignoreRule",
   undefined,

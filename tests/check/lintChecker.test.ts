@@ -25,7 +25,7 @@ describe("checkLint", () => {
   });
 
   test("should detect linting issues", async () => {
-    const content = "#Bad Heading\n";
+    const content = "1) Hello, _Jupiter_ and *Neptune*!\n";
     const issues = await checkLint("/docs/bad.md", content, []);
     expect(issues.length).toBeGreaterThan(0);
     expect(issues[0].category).toBe("lint");
@@ -34,44 +34,63 @@ describe("checkLint", () => {
   });
 
   test("should ignore specified rules", async () => {
-    const content = "#Bad Heading\n";
+    const content = "1) Hello, _Jupiter_ and *Neptune*!\n";
     const issuesWithout = await checkLint("/docs/bad.md", content, []);
     const issuesWith = await checkLint("/docs/bad.md", content, [
-      "MD018",
-      "MD041",
+      "ordered-list-marker-style",
+      "emphasis-marker",
     ]);
 
     expect(issuesWithout.length).toBeGreaterThan(issuesWith.length);
   });
 
-  test("should ignore rules by alias", async () => {
-    const content = "#Bad Heading\n";
+  test("should ignore rules with remark-lint- prefix", async () => {
+    const content = "1) Hello, _Jupiter_ and *Neptune*!\n";
     const issuesWithout = await checkLint("/docs/bad.md", content, []);
     const issuesWith = await checkLint("/docs/bad.md", content, [
-      "no-missing-space-atx",
-      "first-line-heading",
+      "remark-lint-ordered-list-marker-style",
+      "remark-lint-emphasis-marker",
     ]);
 
     expect(issuesWithout.length).toBeGreaterThan(issuesWith.length);
   });
 
-  test("should include rule names in issue output", async () => {
-    const content = "#Bad Heading\n";
+  test("should include rule name in issue output", async () => {
+    const content = "1) Hello\n";
     const issues = await checkLint("/docs/bad.md", content, []);
-    const atxIssue = issues.find((i) => i.rule.includes("MD018"));
-    expect(atxIssue).toBeDefined();
-    expect(atxIssue?.rule).toContain("/");
+    const markerIssue = issues.find(
+      (i) => i.rule === "ordered-list-marker-style",
+    );
+    expect(markerIssue).toBeDefined();
   });
 
   test("should report correct line numbers", async () => {
-    const content = "# Good Heading\n\nSome text\n\n#Bad Heading\n";
-    const issues = await checkLint("/docs/lines.md", content, ["MD041"]);
-    const atxIssue = issues.find((i) => i.rule.includes("MD018"));
-    expect(atxIssue?.line).toBe(5);
+    const content = "# Good Heading\n\nSome text\n\n1) Bad list\n";
+    const issues = await checkLint("/docs/lines.md", content, []);
+    const markerIssue = issues.find(
+      (i) => i.rule === "ordered-list-marker-style",
+    );
+    expect(markerIssue?.line).toBe(5);
   });
 
   test("should return empty array for empty content", async () => {
     const issues = await checkLint("/docs/empty.md", "", []);
     expect(issues).toEqual([]);
+  });
+
+  test("should detect missing final newline", async () => {
+    const content = "# Heading\n\nSome text";
+    const issues = await checkLint("/docs/no-newline.md", content, []);
+    const newlineIssue = issues.find((i) => i.rule === "final-newline");
+    expect(newlineIssue).toBeDefined();
+  });
+
+  test("should not report no-undefined-references", async () => {
+    const content = "# Heading\n\nSee [unknown-ref] for details.\n";
+    const issues = await checkLint("/docs/refs.md", content, []);
+    const undefinedRefIssue = issues.find(
+      (i) => i.rule === "no-undefined-references",
+    );
+    expect(undefinedRefIssue).toBeUndefined();
   });
 });

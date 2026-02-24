@@ -110,14 +110,14 @@ export function registerRunChecksTool(
         }
 
         if (result.issues.length === 0) {
-          results.push(`${result.filePath}: no issues`);
-        } else {
-          results.push(result.filePath);
-          for (const issue of result.issues) {
-            results.push(
-              `  ${issue.line}:${issue.column}  ${issue.severity}  ${issue.rule}  ${issue.message}  (${issue.category})`,
-            );
-          }
+          continue;
+        }
+
+        results.push(result.filePath);
+        for (const issue of result.issues) {
+          results.push(
+            `  ${issue.line}:${issue.column}  ${issue.severity}  ${issue.rule}  ${issue.message}  (${issue.category})`,
+          );
         }
       }
 

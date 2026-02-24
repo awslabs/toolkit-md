@@ -97,7 +97,7 @@ function printResults(result: CheckResult, baseDir: string): void {
       : file.filePath;
 
     if (file.issues.length === 0) {
-      console.log(chalk.green(`${relativePath}: no issues`));
+      continue;
     } else {
       console.log(chalk.underline(relativePath));
       for (const issue of file.issues) {
