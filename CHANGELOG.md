@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.8](https://github.com/awslabs/toolkit-md/compare/v0.1.7...v0.1.8) (2026-02-24)
+
+
+### Features
+
+* Ability to ignore link patterns ([#36](https://github.com/awslabs/toolkit-md/issues/36)) ([74b1887](https://github.com/awslabs/toolkit-md/commit/74b18879e6f08e70b835b9fd7ac0f39c5a45ea0e))
+* Migrate linting to remark-lint ([#37](https://github.com/awslabs/toolkit-md/issues/37)) ([11a3349](https://github.com/awslabs/toolkit-md/commit/11a33496a84ad3282e42d510b3247186b86499cd))
+
+
+### Bug Fixes
+
+* Prompt caching support for Claude Sonnet 4.6 ([b6c3c55](https://github.com/awslabs/toolkit-md/commit/b6c3c5515fab05ef8a7f84a4f0e5ec8e4039532a))
+* Some content URLs not resolved correctly ([6e7eb5f](https://github.com/awslabs/toolkit-md/commit/6e7eb5f6927073a6ae122a48b56e422f7e6739f6))
+
 ## [0.1.7](https://github.com/awslabs/toolkit-md/compare/v0.1.6...v0.1.7) (2026-02-19)
 
 
