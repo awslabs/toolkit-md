@@ -52,6 +52,8 @@ For any finding which cannot be reliably remediated, such as missing images or b
 [Some screenshot](/pods1.png)
 </example_comment>
 
+NOTE: You may not have visibility of the entire directory/file structure so NEVER assume a file is missing or a link is broken unless it has been explicitly highlighted as an issue above.
+
 Write the translated content in a similar style to the example content. Use the write_file tool to output the result to "{{currentNode.filePath}}" in chunks:
 - Each chunk is a separate call to write_file
 - You MUST NOT write more than ~3000 tokens per chunk (roughly 2000-2500 words)
