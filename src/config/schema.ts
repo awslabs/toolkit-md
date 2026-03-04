@@ -55,7 +55,7 @@ export const CONFIG_CONTENT_DIR = withConfig(
 
 export const CONFIG_LANGUAGE = withConfig(
   z
-    .custom<string>((val) => Language.getLanguageMap().has(val), {
+    .custom<string>((val) => Language.getLanguageMap().has(val as string), {
       message: "Unsupported default language",
     })
     .describe("Language to use as the source")
@@ -66,7 +66,7 @@ export const CONFIG_LANGUAGE = withConfig(
 
 export const CONFIG_DEFAULT_LANGUAGE = withConfig(
   z
-    .custom<string>((val) => Language.getLanguageMap().has(val), {
+    .custom<string>((val) => Language.getLanguageMap().has(val as string), {
       message: "Unsupported default language",
     })
     .describe("Language for files with no explicit language marker")

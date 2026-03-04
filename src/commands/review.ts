@@ -21,6 +21,7 @@ import { createPatch } from "diff";
 import {
   buildReviewPrompt,
   buildSummarizePrompt,
+  createWriteFileTool,
   DefaultBedrockClient,
   type FileDiff,
 } from "../ai/index.js";
@@ -237,14 +238,23 @@ async function executeAction(
         checkIssues,
       );
 
+      const writeTool = createWriteFileTool();
+
       const { response } = await utils.withSpinner(
         `Processing ${node.filePath}`,
         async () => {
-          return { response: await client.generate(prompt) };
+          return { response: await client.generate(prompt, [writeTool]) };
         },
       );
 
-      let aiDiff = createPatch(nodePath, node.content, response.output);
+      const reviewedContent = writeTool.files.get(nodePath);
+
+      if (!reviewedContent) {
+        console.log(`⏭️  Skipped ${nodePath} (no file output from model)\n`);
+        continue;
+      }
+
+      let aiDiff = createPatch(nodePath, node.content, reviewedContent);
 
       if (parsedDiff) {
         const normalizedNodePath = path.normalize(nodePath);
@@ -270,11 +280,11 @@ async function executeAction(
       });
 
       if (write) {
-        await tree.updateContent(node, response.output);
+        await tree.updateContent(node, reviewedContent);
 
         console.log(`📜 Wrote to file ${node.filePath}`);
       } else if (!parsedDiff) {
-        utils.displayDiff(node.content, response.output);
+        utils.displayDiff(node.content, reviewedContent);
       }
 
       console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);

@@ -22,8 +22,11 @@ import {
   CountTokensCommand,
   type ImageFormat,
   type Message,
+  type ToolConfiguration,
 } from "@aws-sdk/client-bedrock-runtime";
+import { z } from "zod";
 import type { Prompt } from "../prompts/index.js";
+import type { ToolDefinition } from "../tools/types.js";
 import {
   NoopRateLimiter,
   type RateLimiter,
@@ -140,76 +143,102 @@ export class DefaultBedrockClient implements BedrockClient {
    */
   async generate(
     prompt: Prompt,
+    tools: ToolDefinition[] = [],
     cacheEnabled: boolean = false,
   ): Promise<BedrockClientGenerateResponse> {
     const tokenUsageCounter = new TokenUsageCounter();
 
     const promptText = prompt.prompt;
     const promptContext = prompt.context;
-    let prefill = prompt.prefill ?? "";
 
     let iterations = 0;
 
-    while (true) {
-      // TODO: Emit event about iteration counter
+    const toolConfig: ToolConfiguration | undefined =
+      tools.length > 0
+        ? {
+            tools: tools.map((tool) => ({
+              toolSpec: {
+                name: tool.name,
+                description: tool.description,
+                inputSchema: {
+                  json: z.toJSONSchema(tool.parameters) as Record<
+                    string,
+                    unknown
+                  >,
+                },
+              },
+            })) as ToolConfiguration["tools"],
+          }
+        : undefined;
 
+    const toolMap = new Map(tools.map((t) => [t.name, t]));
+
+    const messages: Message[] = [
+      {
+        role: "user" as ConversationRole,
+        content: [
+          ...(promptContext ? [{ text: promptContext }] : []),
+          ...(cacheEnabled
+            ? [
+                {
+                  cachePoint: {
+                    type: "default" as CachePointType,
+                  },
+                },
+              ]
+            : []),
+          {
+            text: promptText,
+          },
+          ...(prompt.images || []).map((img) => ({
+            image: {
+              format: img.format as ImageFormat,
+              source: { bytes: img.bytes },
+            },
+          })),
+        ],
+      },
+    ];
+
+    while (true) {
       if (iterations > this.maxIterations) {
         throw new Error("Maximum iterations breached");
       }
 
-      const conversation = [
-        {
-          role: "user" as ConversationRole,
-          content: [
-            ...(promptContext ? [{ text: promptContext }] : []),
-
-            ...(cacheEnabled && this.isCachingSupported(this.modelId)
-              ? [
-                  {
-                    cachePoint: {
-                      type: "default" as CachePointType,
-                    },
-                  },
-                ]
-              : []),
-            {
-              text: promptText,
-            },
-            ...(prompt.images || []).map((img) => ({
-              image: {
-                format: img.format as ImageFormat,
-                source: { bytes: img.bytes },
-              },
-            })),
-          ],
-        },
-        ...(prefill
-          ? [
-              {
-                role: "assistant" as ConversationRole,
-                content: [{ text: prefill }],
-              },
-            ]
-          : []),
-      ];
-
       const estimatedTokens = await this.estimateTokens(
-        conversation,
+        messages,
         prompt.sampleOutput,
       );
-      /*const estimatedTokens = estimateTokens(
-        promptContext ?? "",
-        promptText,
-        prefill,
-        prompt.sampleOutput ?? "",
-      );*/
 
       tokenUsageCounter.addEstimated(estimatedTokens);
 
       const command = new ConverseCommand({
         modelId: this.modelId,
-        messages: conversation,
+        messages,
+        toolConfig,
+        additionalModelRequestFields: {
+          reasoning_config: {
+            type: "enabled",
+            budget_tokens: 2048,
+          },
+        },
         inferenceConfig: { maxTokens: this.maxTokens },
+        ...(prompt.outputSchema && {
+          outputConfig: {
+            textFormat: {
+              type: "json_schema",
+              structure: {
+                jsonSchema: {
+                  schema: JSON.stringify(
+                    z.toJSONSchema(prompt.outputSchema.schema),
+                  ),
+                  name: prompt.outputSchema.name,
+                  description: prompt.outputSchema.description,
+                },
+              },
+            },
+          },
+        }),
       });
 
       await Promise.all([
@@ -221,9 +250,6 @@ export class DefaultBedrockClient implements BedrockClient {
 
       const responseObject = await this.client.send(command);
 
-      // biome-ignore lint/style/noNonNullAssertion: Need to see if this needs better checks
-      let response = prefill + responseObject.output!.message!.content![0].text;
-
       this.tokenRateLimiter.consume(
         responseObject.usage?.totalTokens || 0,
         timestamp,
@@ -233,11 +259,50 @@ export class DefaultBedrockClient implements BedrockClient {
         tokenUsageCounter.addUsage(responseObject.usage);
       }
 
-      if (responseObject.stopReason === "max_tokens") {
-        prefill = response.trimEnd();
-        iterations++;
+      const responseContent = responseObject.output?.message?.content ?? [];
 
+      if (responseObject.stopReason === "tool_use") {
+        messages.push({
+          role: "assistant" as ConversationRole,
+          content: responseContent,
+        });
+
+        const toolResultContent = [];
+
+        for (const block of responseContent) {
+          if (!block.toolUse) continue;
+
+          const toolUseId = block.toolUse.toolUseId;
+          const toolName = block.toolUse.name ?? "";
+          const input = (block.toolUse.input ?? {}) as Record<string, unknown>;
+          const tool = toolMap.get(toolName);
+
+          const resultText = tool
+            ? tool.execute(input)
+            : `Unknown tool: ${toolName}`;
+
+          toolResultContent.push({
+            toolResult: {
+              toolUseId,
+              content: [{ text: resultText }],
+            },
+          });
+        }
+
+        messages.push({
+          role: "user" as ConversationRole,
+          content: toolResultContent,
+        });
+
+        iterations++;
         continue;
+      }
+
+      const textBlock = responseContent.find((block) => block.text);
+      let response = textBlock?.text ?? "";
+
+      if (responseObject.stopReason === "max_tokens") {
+        throw new Error("Response exceeded maximum token limit");
       }
 
       if (responseObject.stopReason !== "end_turn") {
@@ -285,44 +350,5 @@ export class DefaultBedrockClient implements BedrockClient {
     const responseObject = await this.client.send(command);
 
     return responseObject.inputTokens ?? 0;
-  }
-
-  /**
-   * Determines whether prompt caching is supported for the given model ID.
-   *
-   * Caching can improve performance and reduce costs by reusing previously
-   * processed context across multiple requests. This feature is only available
-   * for specific model versions.
-   *
-   * @param modelId - The AWS Bedrock model identifier to check
-   * @returns True if the model supports prompt caching, false otherwise
-   *
-   * @private
-   */
-  private isCachingSupported(modelId: string) {
-    const validModels = [
-      "anthropic.claude-opus-4-6",
-      "anthropic.claude-opus-4-5",
-      "anthropic.claude-opus-4-1",
-      "anthropic.claude-opus-4",
-      "anthropic.claude-sonnet-4-6",
-      "anthropic.claude-sonnet-4-5",
-      "anthropic.claude-haiku-4-5",
-      "anthropic.claude-opus-4",
-      "anthropic.claude-sonnet-4",
-      "anthropic.claude-3-7-sonnet",
-      "anthropic.claude-3-5-haiku",
-      "amazon.nova-micro-v1:0",
-      "amazon.nova-lite-v1:0",
-      "amazon.nova-pro-v1:0",
-    ];
-
-    for (const validModel of validModels) {
-      if (modelId.includes(validModel)) {
-        return true;
-      }
-    }
-
-    return false;
   }
 }

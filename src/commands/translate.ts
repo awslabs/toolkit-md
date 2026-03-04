@@ -16,7 +16,11 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
-import { buildTranslatePrompt, DefaultBedrockClient } from "../ai/index.js";
+import {
+  buildTranslatePrompt,
+  createWriteFileTool,
+  DefaultBedrockClient,
+} from "../ai/index.js";
 import {
   CONFIG_CHECK_TRANSLATION,
   CONFIG_FORCE_TRANSLATION,
@@ -210,25 +214,38 @@ async function executeAction(
         exemplars,
       );
 
+      const writeTool = createWriteFileTool();
+
       const { response } = await utils.withSpinner(
         `Processing ${node.filePath}`,
         async () => {
-          return { response: await client.generate(prompt, enableCache) };
+          return {
+            response: await client.generate(prompt, [writeTool], enableCache),
+          };
         },
       );
+
+      const translatedContent = writeTool.files.get(node.filePath);
+
+      if (!translatedContent) {
+        console.log(
+          `⏭️  Skipped ${node.filePath} (no file output from model)\n`,
+        );
+        continue;
+      }
 
       if (write) {
         let writtenNode = targetNode;
 
         if (!writtenNode) {
-          writtenNode = await targetTree.create(node.path, response.output);
+          writtenNode = await targetTree.create(node.path, translatedContent);
         } else {
-          await targetTree.updateContent(writtenNode, response.output);
+          await targetTree.updateContent(writtenNode, translatedContent);
         }
 
         console.log(`📜 Wrote to file ${writtenNode.filePath}`);
       } else {
-        console.log(response.output);
+        console.log(translatedContent);
       }
 
       console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);

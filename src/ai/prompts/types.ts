@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type { z } from "zod";
 import type { ContentNode } from "../../content/index.js";
 
 /**
@@ -60,6 +61,16 @@ export interface Prompt {
    * Images are provided as byte arrays with their format.
    */
   images?: Array<{ bytes: Uint8Array; format: string }>;
+
+  /**
+   * Optional JSON schema for structured output.
+   * When provided, the model will return a response conforming to this schema.
+   */
+  outputSchema?: {
+    schema: z.ZodType;
+    name: string;
+    description?: string;
+  };
 }
 
 export interface Exemplar {
