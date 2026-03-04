@@ -24,11 +24,7 @@ import {
 import type { Language } from "../../languages/index.js";
 import { buildContextPrompt } from "./contextPrompt.js";
 import type { Exemplar, Prompt } from "./types.js";
-import {
-  type ContextStrategy,
-  extractFileSection,
-  getContext,
-} from "./utils.js";
+import { type ContextStrategy, getContext } from "./utils.js";
 
 const template = `Your task is to translate the content provided for file "{{currentNode.filePath}}" to {{targetLanguage.name}} ({{targetLanguage.code}}).
 
@@ -37,9 +33,17 @@ ALWAYS return the entire translated file, do not abbreviate it
 ALWAYS add or update the Markdown frontmatter with a key '${TRANSLATION_SRC_HASH_KEY}' with value '{{sourceHash}}'
 ALWAYS remove the Markdown frontmatter with key '${LEGACY_TRANSLATION_SRC_HASH_KEY}' as this is deprecated
 
-Write the output as markdown in a similar style to the example content. Respond with the resulting file enclosed in "<file></file>" tags including the path to the file as an attribute
+Write the translated content in a similar style to the example content. Use the write_file tool to output the result to "{{currentNode.filePath}}" in chunks:
+- Each chunk is a separate call to write_file
+- You MUST NOT write more than ~3000 tokens per chunk (roughly 2000-2500 words)
+- Break at natural boundaries: section headers, major paragraphs
+- First call: mode="create"
+- Subsequent calls: mode="append"
+- Continue until complete
 
-ONLY respond with the content between the "<file></file>" tags.
+Write substantial chunks to minimize tool calls while staying well under the output limit.
+
+You're final response to the user MUST simply be "Success".
 
 {{#if existingTranslation}}
 The existing translation for this file is provided below enclosed in <existingTranslation></existingTranslation>. Use this as a reference and update it an necessary based on the provided source file.
@@ -80,15 +84,5 @@ export function buildTranslatePrompt(
       sourceHash: currentNode.hash,
     }),
     sampleOutput: currentNode.content || "",
-    prefill: `<file path="${currentNode.filePath}">`,
-    transform: (input) => {
-      const fileSection = extractFileSection(input);
-
-      if (fileSection.path !== currentNode.filePath) {
-        throw new Error(`Unexpected file path in output: ${fileSection.path}`);
-      }
-
-      return fileSection.content;
-    },
   };
 }

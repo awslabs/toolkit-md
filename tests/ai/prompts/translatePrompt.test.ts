@@ -62,7 +62,6 @@ describe("buildTranslatePrompt", () => {
     expect(result.prompt).toContain("ALWAYS return the entire translated file");
     expect(result.prompt).not.toContain("existingTranslation");
     expect(result.sampleOutput).toBe("# Test Content\nThis is test content.");
-    expect(result.prefill).toBe('<file path="/content/test.md">');
   });
 
   test("should include existing translation when provided", () => {
@@ -219,62 +218,6 @@ describe("buildTranslatePrompt", () => {
     expect(result.context).toContain("This is a good example.");
   });
 
-  test("should handle transform function correctly", () => {
-    const tree = createMockTree("en");
-    const currentNode = tree.forceAdd(
-      "/content/test.md",
-      "# Test Content\nThis is test content.",
-    );
-
-    const result = buildTranslatePrompt(
-      tree,
-      currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
-    );
-
-    expect(result.transform).toBeDefined();
-
-    // Test successful transformation
-    const mockInput = `<file path="/content/test.md"># Contenu de Test
-Ceci est du contenu de test.</file>`;
-
-    // biome-ignore lint/style/noNonNullAssertion: Will be defined
-    const transformedOutput = result.transform!(mockInput);
-    expect(transformedOutput).toBe(`# Contenu de Test
-Ceci est du contenu de test.`);
-  });
-
-  test("should throw error when transform receives wrong file path", () => {
-    const tree = createMockTree("en");
-    const currentNode = tree.forceAdd(
-      "/content/test.md",
-      "# Test Content\nThis is test content.",
-    );
-
-    const result = buildTranslatePrompt(
-      tree,
-      currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
-    );
-
-    const mockInputWithWrongPath = `<file path="/wrong/path.md">Content</file>`;
-
-    // biome-ignore lint/style/noNonNullAssertion: Will be defined
-    expect(() => result.transform!(mockInputWithWrongPath)).toThrow(
-      "Unexpected file path in output: /wrong/path.md",
-    );
-  });
-
   test("should handle different language combinations", () => {
     const spanishLanguage: Language = {
       code: "es-US",
@@ -340,7 +283,6 @@ bash command example
 
     expect(result.sampleOutput).toBe(complexContent);
     expect(result.prompt).toContain("5fd2e593a354710152429d6194589eff");
-    expect(result.prefill).toBe('<file path="/content/complex.md">');
   });
 
   test("should handle empty style guides and exemplars", () => {

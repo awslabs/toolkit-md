@@ -130,7 +130,9 @@ describe("ZodConfigManager", () => {
       });
 
       // Initialize with empty CLI options
-      expect(async () => await configManager.initialize({})).rejects.toThrow();
+      await expect(
+        async () => await configManager.initialize({}),
+      ).rejects.toThrow();
     });
   });
 

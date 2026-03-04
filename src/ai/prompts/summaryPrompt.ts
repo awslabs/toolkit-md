@@ -15,24 +15,18 @@
  */
 
 import Handlebars from "handlebars";
+import { z } from "zod";
 import type { Prompt } from "./types.js";
 
-const template = `Your task to generate a summary table of a list of content changes that have been proposed for a human to easily review. 
+const template = `Your task is to analyze a list of content changes provided as file diffs and extract each logical change as a structured suggestion.
 
-The changes are provided as file diffs.
+Separate and group each logical change in each file into a separate suggestion. DO NOT group all changes in a file together unless they are the same logical change.
 
-The summary should be presented as a Markdown table. Try to separate and group each logical change in each file in to a separate row. DO NOT group all changes in a file together unless they are the same logical change. 
-
-Use the following columns:
-
-- Suggestion: A description of the suggested change and its justification
-- File: A link to the file and line number for the suggested change
-
-Here is an example table, where the change was on line 42 based on the diff:
-
-| Suggestion | File |
-| ---------- | ---- |
-| <details><summary>Fix subject-verb agreement</summary>Change "The functions is" to "The functions are" for proper grammar</details>    |  [docs/guide.md:42](docs/guide.md#L42) |
+For each suggestion provide:
+- summary: A short title describing the change
+- description: A detailed explanation of the change and its justification
+- file: The file path
+- line: The line number where the change occurs based on the diff
 
 <file_diffs>
 {{#each diffs}}
@@ -42,18 +36,53 @@ Here is an example table, where the change was on line 42 based on the diff:
 {{/each}}
 </file_diffs>`;
 
+const summaryTableTemplate = Handlebars.compile(
+  `| Suggestion | File |
+| ---------- | ---- |
+{{#each suggestions}}
+| <details><summary>{{{this.summary}}}</summary>{{{this.description}}}</details> | [{{{this.file}}}:{{{this.line}}}]({{{this.file}}}#L{{{this.line}}}) |
+{{/each}}`,
+);
+
+const suggestionEntrySchema = z.object({
+  summary: z.string().describe("Short title describing the suggested change"),
+  description: z
+    .string()
+    .describe("Detailed explanation of the change and its justification"),
+  file: z.string().describe("File path where the change occurs"),
+  line: z
+    .number()
+    .describe("Line number of the change based on the diff context"),
+});
+
+const outputSchema = z.object({
+  suggestions: z.array(suggestionEntrySchema),
+});
+
+export type SuggestionEntry = z.infer<typeof suggestionEntrySchema>;
+
 export interface FileDiff {
   path: string;
   diff: string;
+}
+
+export function formatSummaryTable(suggestions: SuggestionEntry[]): string {
+  return summaryTableTemplate({ suggestions });
 }
 
 export function buildSummarizePrompt(diffs: FileDiff[]): Prompt {
   const promptTemplate = Handlebars.compile(template);
 
   return {
-    prompt: promptTemplate({
-      diffs,
-    }),
-    prefill: "| Suggestion",
+    prompt: promptTemplate({ diffs }),
+    outputSchema: {
+      schema: outputSchema,
+      name: "change_summary",
+      description: "Structured summary of content change suggestions",
+    },
+    transform: (input: string) => {
+      const parsed = outputSchema.parse(JSON.parse(input));
+      return formatSummaryTable(parsed.suggestions);
+    },
   };
 }

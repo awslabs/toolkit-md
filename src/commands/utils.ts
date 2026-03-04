@@ -411,13 +411,13 @@ export function optionForConfigSchema(
 
   let flagString = `${flags} <value>`;
 
-  if (schema._def.innerType instanceof ZodBoolean) {
+  if (schema._zod.def.innerType instanceof ZodBoolean) {
     flagString = flags;
   }
 
   const option = new Option(flagString, optionDescriptionFromSchema(schema));
 
-  if (schema._def.innerType instanceof ZodArray) {
+  if (schema._zod.def.innerType instanceof ZodArray) {
     option.argParser(collect);
   }
 
@@ -435,7 +435,7 @@ export function optionDescriptionFromSchema(
   if (schema instanceof ZodDefault) {
     defaultValue = `(default: ${
       // biome-ignore lint/suspicious/noExplicitAny: Better way?
-      JSON.stringify((schema as ZodDefault<any>)._def.defaultValue())
+      JSON.stringify((schema as ZodDefault<any>)._zod.def.defaultValue)
     })`;
   }
 
@@ -478,4 +478,26 @@ export async function buildContentTree(
   entries.forEach(({ path, content }) => tree.add(path, content));
 
   return tree;
+}
+
+const SUPPORTED_MODELS = [
+  "anthropic.claude-opus-4-6",
+  "anthropic.claude-opus-4-5",
+  "anthropic.claude-opus-4-1",
+  "anthropic.claude-opus-4",
+  "anthropic.claude-sonnet-4-6",
+  "anthropic.claude-sonnet-4-5",
+  "anthropic.claude-haiku-4-5",
+  "anthropic.claude-sonnet-4",
+  "anthropic.claude-3-7-sonnet",
+];
+
+/**
+ * Validates whether a model ID is supported by the toolkit.
+ *
+ * @param modelId - The AWS Bedrock model identifier to validate
+ * @returns True if the model is supported, false otherwise
+ */
+export function isSupportedModel(modelId: string): boolean {
+  return SUPPORTED_MODELS.some((model) => modelId.includes(model));
 }

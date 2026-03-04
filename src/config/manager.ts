@@ -101,7 +101,7 @@ export class ConfigManager {
     // Special handling for array values from environment variables with prefix
     if (
       value === undefined &&
-      schemaNode._def.innerType instanceof z.ZodArray &&
+      schemaNode._zod.def.innerType instanceof z.ZodArray &&
       schemaNode.envPrefix
     ) {
       const values: any[] = [];
@@ -140,7 +140,9 @@ export class ConfigManager {
     } catch (error) {
       if (error instanceof z.ZodError) {
         // Format Zod error messages
-        const errorMessages = error.errors.map((e) => e.message).join(", ");
+        const errorMessages = error.issues
+          .map((e: { message: string }) => e.message)
+          .join(", ");
         throw new Error(`Invalid configuration for ${path}: ${errorMessages}`);
       }
       throw error;
@@ -166,7 +168,7 @@ export class ConfigManager {
 
       // Handle object schemas
       if (current instanceof z.ZodObject) {
-        const shape = current._def.shape();
+        const shape = current.shape;
         current = shape[key];
       }
       // Handle array schemas
