@@ -32,6 +32,26 @@ DO NOT make any changes not related to translating the content
 ALWAYS return the entire translated file, do not abbreviate it
 ALWAYS add or update the Markdown frontmatter with a key '${TRANSLATION_SRC_HASH_KEY}' with value '{{sourceHash}}'
 ALWAYS remove the Markdown frontmatter with key '${LEGACY_TRANSLATION_SRC_HASH_KEY}' as this is deprecated
+ALWAYS avoid translating code snippets, terminal commands and sample log output
+YOU MUST translate code and terminal comments included in code snippets
+
+Example of translating terminal comments. This English content:
+
+\`\`\`bash test=false
+$ POD_HOSTIP_1=$(kubectl get po --selector app.kubernetes.io/component=service -n orders -o json | jq -r '.items[0].spec.nodeName')
+$ kubectl debug node/$POD_HOSTIP_1 -it --image=ubuntu
+# Run these commands inside the pod
+$ grep DENY /host/var/log/aws-routed-eni/network-policy-agent.log | tail -5
+\'\'\'
+
+Would become this Japanese content:
+
+\`\`\`bash test=false
+$ POD_HOSTIP_1=$(kubectl get po --selector app.kubernetes.io/component=service -n orders -o json | jq -r '.items[0].spec.nodeName')
+$ kubectl debug node/$POD_HOSTIP_1 -it --image=ubuntu
+# ポッド内でこれらのコマンドを実行
+$ grep DENY /host/var/log/aws-routed-eni/network-policy-agent.log | tail -5
+\'\'\'
 
 Write the translated content in a similar style to the example content. Use the write_file tool to output the result to "{{currentNode.filePath}}" in chunks:
 - Each chunk is a separate call to write_file
