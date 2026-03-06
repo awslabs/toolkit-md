@@ -47,8 +47,8 @@ function withConfig<T extends z.ZodType>(
 export const CONFIG_CONTENT_DIR = withConfig(
   z
     .string()
-    .describe("Directory relative to the cwd where content is hosted")
-    .optional(),
+    .optional()
+    .describe("Directory relative to the cwd where content is hosted"),
   "contentDir",
   "TKMD_CONTENT_DIR",
 );
@@ -58,8 +58,8 @@ export const CONFIG_LANGUAGE = withConfig(
     .custom<string>((val) => Language.getLanguageMap().has(val as string), {
       message: "Unsupported default language",
     })
-    .describe("Language to use as the source")
-    .default("en"),
+    .default("en")
+    .describe("Language to use as the source"),
   "language",
   "TKMD_LANGUAGE",
 );
@@ -69,8 +69,8 @@ export const CONFIG_DEFAULT_LANGUAGE = withConfig(
     .custom<string>((val) => Language.getLanguageMap().has(val as string), {
       message: "Unsupported default language",
     })
-    .describe("Language for files with no explicit language marker")
-    .default("en"),
+    .default("en")
+    .describe("Language for files with no explicit language marker"),
   "defaultLanguage",
   "TKMD_DEFAULT_LANGUAGE",
 );
@@ -78,8 +78,8 @@ export const CONFIG_DEFAULT_LANGUAGE = withConfig(
 export const CONFIG_MODEL = withConfig(
   z
     .string()
-    .describe("AWS Bedrock model ID")
-    .default("global.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+    .default("global.anthropic.claude-sonnet-4-5-20250929-v1:0")
+    .describe("AWS Bedrock model ID"),
   "model",
   "TKMD_AI_MODEL",
 );
@@ -90,8 +90,8 @@ export const CONFIG_MAX_TOKENS = withConfig(
       z.number().positive("Max tokens must be greater than 0"),
       z.string().transform((val) => parseInt(val, 10)),
     ])
-    .describe("Maximum tokens to be output by the model")
-    .default(4096),
+    .default(4096)
+    .describe("Maximum tokens to be output by the model"),
   "maxTokens",
   "TKMD_AI_MAX_TOKENS",
 );
@@ -99,8 +99,8 @@ export const CONFIG_MAX_TOKENS = withConfig(
 export const CONFIG_WRITE = withConfig(
   z
     .boolean()
-    .describe("Write proposed changes to the source files")
-    .default(false),
+    .default(false)
+    .describe("Write proposed changes to the source files"),
   "write",
   "TKMD_AI_WRITE",
 );
@@ -111,8 +111,8 @@ export const CONFIG_RATE_LIMIT_REQUESTS = withConfig(
       z.number().min(0, "Rate limit cannot be negative"),
       z.string().transform((val) => Math.max(0, Math.floor(Number(val)))),
     ])
-    .describe("Maximum requests per minute to send to the LLM")
-    .default(0),
+    .default(0)
+    .describe("Maximum requests per minute to send to the LLM"),
   "requestRate",
   "TKMD_AI_REQUEST_RATE_LIMIT",
 );
@@ -123,20 +123,20 @@ export const CONFIG_RATE_LIMIT_TOKENS = withConfig(
       z.number().min(0, "Token rate limit cannot be negative"),
       z.string().transform((val) => Math.max(0, Math.floor(Number(val)))),
     ])
-    .describe("Maximum tokens per minute to send to the LLM")
-    .default(0),
+    .default(0)
+    .describe("Maximum tokens per minute to send to the LLM"),
   "tokenRate",
   "TKMD_AI_TOKEN_RATE_LIMIT",
 );
 
 export const CONFIG_REVIEW_SUMMARY_PATH = withConfig(
-  z.string().describe("Write summary to this file").default(""),
+  z.string().default("").describe("Write summary to this file"),
   "summaryPath",
   "TKMD_AI_REVIEW_SUMMARY_PATH",
 );
 
 export const CONFIG_REVIEW_INSTRUCTIONS = withConfig(
-  z.string().describe("Additional instructions for the model").optional(),
+  z.string().optional().describe("Additional instructions for the model"),
   "instructions",
   "TKMD_REVIEW_INSTRUCTIONS",
 );
@@ -144,8 +144,8 @@ export const CONFIG_REVIEW_INSTRUCTIONS = withConfig(
 export const CONFIG_REVIEW_DIFF_FILE = withConfig(
   z
     .string()
-    .describe("Path to unified diff file for filtering review suggestions")
-    .optional(),
+    .optional()
+    .describe("Path to unified diff file for filtering review suggestions"),
   "diffFile",
   "TKMD_AI_REVIEW_DIFF_FILE",
 );
@@ -156,10 +156,10 @@ export const CONFIG_REVIEW_DIFF_CONTEXT = withConfig(
       z.number().nonnegative("Diff context must be non-negative"),
       z.string().transform((val) => parseInt(val, 10)),
     ])
+    .default(3)
     .describe(
       "Number of context lines around changed lines to include (symmetric)",
-    )
-    .default(3),
+    ),
   "diffContext",
   "TKMD_AI_REVIEW_DIFF_CONTEXT",
 );
@@ -167,10 +167,10 @@ export const CONFIG_REVIEW_DIFF_CONTEXT = withConfig(
 export const CONFIG_REVIEW_CHECK = withConfig(
   z
     .boolean()
+    .default(true)
     .describe(
       "Run content checks (lint, links, images) and include results in the review prompt",
-    )
-    .default(true),
+    ),
   "reviewCheck",
   "TKMD_AI_REVIEW_CHECK",
 );
@@ -178,8 +178,8 @@ export const CONFIG_REVIEW_CHECK = withConfig(
 export const CONFIG_FORCE_TRANSLATION = withConfig(
   z
     .boolean()
-    .describe("Force translation even if the source file has not changed")
-    .default(false),
+    .default(false)
+    .describe("Force translation even if the source file has not changed"),
   "force",
   "TKMD_AI_FORCE_TRANSLATION",
 );
@@ -187,8 +187,8 @@ export const CONFIG_FORCE_TRANSLATION = withConfig(
 export const CONFIG_CHECK_TRANSLATION = withConfig(
   z
     .boolean()
-    .describe("Only check if any files require translation")
-    .default(false),
+    .default(false)
+    .describe("Only check if any files require translation"),
   "check",
   "TKMD_AI_CHECK_TRANSLATION",
 );
@@ -196,10 +196,10 @@ export const CONFIG_CHECK_TRANSLATION = withConfig(
 export const CONFIG_TRANSLATION_DIR = withConfig(
   z
     .string()
+    .optional()
     .describe(
       "Directory where translated content is stored, if not specified defaults to source directory",
-    )
-    .optional(),
+    ),
   "translationDir",
   "TKMD_AI_TRANSLATION_DIRECTORY",
 );
@@ -207,10 +207,10 @@ export const CONFIG_TRANSLATION_DIR = withConfig(
 export const CONFIG_TRANSLATION_SKIP_SUFFIX = withConfig(
   z
     .boolean()
+    .default(false)
     .describe(
       "Omit the language code suffix for translated files ('example.fr.md' becomes 'example.md')",
-    )
-    .default(false),
+    ),
   "skipFileSuffix",
   "TKMD_AI_TRANSLATION_SKIP_FILE_SUFFIX",
 );
@@ -218,14 +218,14 @@ export const CONFIG_TRANSLATION_SKIP_SUFFIX = withConfig(
 export const CONFIG_CONTEXT_STRATEGY = withConfig(
   z
     .enum(["siblings", "nothing", "everything"])
-    .describe("Strategy for including context")
-    .default("nothing"),
+    .default("nothing")
+    .describe("Strategy for including context"),
   "contextStrategy",
   "TKMD_AI_CONTEXT_STRATEGY",
 );
 
 export const CONFIG_EXEMPLARS = withConfig(
-  z.array(z.string()).describe("Paths to example content").default([]),
+  z.array(z.string()).default([]).describe("Paths to example content"),
   "exemplar",
   undefined,
   "TKMD_AI_EXEMPLAR",
@@ -234,8 +234,8 @@ export const CONFIG_EXEMPLARS = withConfig(
 export const CONFIG_STYLE_GUIDES = withConfig(
   z
     .array(z.string())
-    .describe("Paths to documents containing style guides")
-    .default([]),
+    .default([])
+    .describe("Paths to documents containing style guides"),
   "styleGuide",
   undefined,
   "TKMD_AI_STYLE_GUIDE",
@@ -244,8 +244,8 @@ export const CONFIG_STYLE_GUIDES = withConfig(
 export const CONFIG_INCLUDE_IMAGES = withConfig(
   z
     .boolean()
-    .describe("Include images from markdown files in AI review")
-    .default(false),
+    .default(false)
+    .describe("Include images from markdown files in AI review"),
   "includeImages",
   "TKMD_AI_INCLUDE_IMAGES",
 );
@@ -256,8 +256,8 @@ export const CONFIG_MAX_IMAGES = withConfig(
       z.number().positive("Max images must be greater than 0"),
       z.string().transform((val) => parseInt(val, 10)),
     ])
-    .describe("Maximum number of images to include per file")
-    .default(5),
+    .default(5)
+    .describe("Maximum number of images to include per file"),
   "maxImages",
   "TKMD_AI_MAX_IMAGES",
 );
@@ -268,8 +268,8 @@ export const CONFIG_MAX_IMAGE_SIZE = withConfig(
       z.number().positive("Max image size must be greater than 0"),
       z.string().transform((val) => parseInt(val, 10)),
     ])
-    .describe("Maximum image file size in bytes")
-    .default(3145728),
+    .default(3145728)
+    .describe("Maximum image file size in bytes"),
   "maxImageSize",
   "TKMD_AI_MAX_IMAGE_SIZE",
 );
@@ -282,8 +282,8 @@ export const CONFIG_CHECK_LINK_TIMEOUT = withConfig(
       z.number().positive("Link timeout must be greater than 0"),
       z.string().transform((val) => Number.parseInt(val, 10)),
     ])
-    .describe("Timeout in milliseconds for HTTP link checks")
-    .default(5000),
+    .default(5000)
+    .describe("Timeout in milliseconds for HTTP link checks"),
   "linkTimeout",
   "TKMD_CHECK_LINK_TIMEOUT",
 );
@@ -291,16 +291,16 @@ export const CONFIG_CHECK_LINK_TIMEOUT = withConfig(
 export const CONFIG_CHECK_SKIP_EXTERNAL_LINKS = withConfig(
   z
     .boolean()
-    .describe("Skip validation of external HTTP/HTTPS links")
-    .default(false),
+    .default(false)
+    .describe("Skip validation of external HTTP/HTTPS links"),
   "skipExternalLinks",
   "TKMD_CHECK_SKIP_EXTERNAL_LINKS",
 );
 export const CONFIG_CHECK_LINK_IGNORE_PATTERNS = withConfig(
   z
     .array(z.string())
-    .describe("Regex patterns for URLs to ignore during link checking")
-    .default([]),
+    .default([])
+    .describe("Regex patterns for URLs to ignore during link checking"),
   "ignoreLinkPattern",
   undefined,
   "TKMD_CHECK_LINK_IGNORE_PATTERN",
@@ -309,10 +309,10 @@ export const CONFIG_CHECK_LINK_IGNORE_PATTERNS = withConfig(
 export const CONFIG_CHECK_LINT_IGNORE_RULES = withConfig(
   z
     .array(z.string())
+    .default([])
     .describe(
       "remark-lint rule names to ignore (without the remark-lint- prefix)",
-    )
-    .default([]),
+    ),
   "ignoreRule",
   undefined,
   "TKMD_CHECK_LINT_IGNORE_RULE",
@@ -321,8 +321,8 @@ export const CONFIG_CHECK_LINT_IGNORE_RULES = withConfig(
 export const CONFIG_CHECK_MIN_SEVERITY = withConfig(
   z
     .enum(["error", "warning"])
-    .describe("Minimum severity level to report")
-    .default("warning"),
+    .default("warning")
+    .describe("Minimum severity level to report"),
   "minSeverity",
   "TKMD_CHECK_MIN_SEVERITY",
 );
@@ -330,8 +330,8 @@ export const CONFIG_CHECK_MIN_SEVERITY = withConfig(
 export const CONFIG_CHECK_CATEGORIES = withConfig(
   z
     .array(z.enum(["lint", "link", "image"]))
-    .describe("Check categories to run")
-    .default(["lint", "link", "image"]),
+    .default(["lint", "link", "image"])
+    .describe("Check categories to run"),
   "category",
   undefined,
   "TKMD_CHECK_CATEGORY",
@@ -340,10 +340,10 @@ export const CONFIG_CHECK_CATEGORIES = withConfig(
 export const CONFIG_STATIC_PREFIX = withConfig(
   z
     .string()
+    .optional()
     .describe(
       "URL prefix that indicates a link points to a file in the static directory",
-    )
-    .optional(),
+    ),
   "staticPrefix",
   "TKMD_STATIC_PREFIX",
 );
@@ -351,10 +351,10 @@ export const CONFIG_STATIC_PREFIX = withConfig(
 export const CONFIG_STATIC_DIR = withConfig(
   z
     .string()
+    .optional()
     .describe(
       "Directory relative to the cwd where static assets are stored, used with staticPrefix",
-    )
-    .optional(),
+    ),
   "staticDir",
   "TKMD_STATIC_DIR",
 );

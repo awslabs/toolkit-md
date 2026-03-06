@@ -59,7 +59,10 @@ export function createTranslateCommand(): Command {
   command
     .argument("<content>", "file path to content to translate")
     .description("Translates the given content")
-    .option("--to <value>", `Target language (${Language.getLanguages()})`)
+    .option(
+      "--to <value>",
+      `Target language (${Language.getLanguages().map((l) => l.code)})`,
+    )
     .action(utils.withErrorHandling("Translate", executeAction));
 
   utils.optionForConfigSchema(command, CONFIG_CHECK_TRANSLATION);
