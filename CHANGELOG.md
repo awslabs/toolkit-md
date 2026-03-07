@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0](https://github.com/awslabs/toolkit-md/compare/v0.1.8...v0.2.0) (2026-03-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* Support Claude 4.6 generation models ([#40](https://github.com/awslabs/toolkit-md/issues/40))
+
+### Features
+
+* Support Claude 4.6 generation models ([#40](https://github.com/awslabs/toolkit-md/issues/40)) ([2bdb5b8](https://github.com/awslabs/toolkit-md/commit/2bdb5b8e270bcb5c5992b7ba5eb208e32966d59a))
+
+
+### Bug Fixes
+
+* Add custom user agent for Bedrock API calls ([d64ecb4](https://github.com/awslabs/toolkit-md/commit/d64ecb4e0a6e23798be17d1cb6047db1a377153d))
+* Avoid making whitespace changes to reviewed files ([32098f9](https://github.com/awslabs/toolkit-md/commit/32098f9a60c20aa2fe450abcffdf9db29ccf6253))
+* Fix option descriptions after zod migration ([096651f](https://github.com/awslabs/toolkit-md/commit/096651fd78015b52b05e1273559040177e3ef432))
+* Model should not try to guess if links are broken ([94786b3](https://github.com/awslabs/toolkit-md/commit/94786b30d358d3a0e32905480f10d79b736dd7e9))
+* Provide more direction when translation code snippets ([16fcd6b](https://github.com/awslabs/toolkit-md/commit/16fcd6b042d3f0b8f3dc6ec441c8fd7f8dbd20b4))
+
 ## [0.1.8](https://github.com/awslabs/toolkit-md/compare/v0.1.7...v0.1.8) (2026-02-24)
 
 
