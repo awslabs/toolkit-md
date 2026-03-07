@@ -26,6 +26,10 @@ import { type ContextStrategy, getContext } from "./utils.js";
 
 const template = `Your task is to review the content provided for file "{{file}}" and update it to improve it in terms of style, grammar and syntax.
 
+You MUST not make changes that are whitespace only, this includes:
+1. DO NOT change whitespace alignment in Markdown tables
+2. DO NOT add or remove trailing newlines at the end of a file
+
 {{#if includeImages}}
 The images for the file to review have been included as attachments. Ensure that the descriptions of the images in the Markdown match the contents of each image.
 {{/if}}
