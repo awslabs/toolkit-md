@@ -35,6 +35,8 @@ import {
 import type { BedrockClient, BedrockClientGenerateResponse } from "./types.js";
 import { TokenUsageCounter } from "./utils.js";
 
+const USER_AGENT = process.env.TKMD_AI_USER_AGENT || "toolkit-md";
+
 /**
  * Default implementation of the BedrockClient interface that provides AI text generation
  * capabilities using AWS Bedrock Runtime service.
@@ -88,7 +90,9 @@ export class DefaultBedrockClient implements BedrockClient {
     tokenRate: number,
     private readonly maxIterations: number,
   ) {
-    this.client = new BedrockRuntimeClient();
+    this.client = new BedrockRuntimeClient({
+      customUserAgent: USER_AGENT,
+    });
 
     let requestRateLimiter = new NoopRateLimiter();
     if (requestRate > 0) {
