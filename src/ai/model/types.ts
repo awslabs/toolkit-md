@@ -15,7 +15,6 @@
  */
 
 import type { Prompt } from "../prompts/index.js";
-import type { ToolDefinition } from "../tools/types.js";
 
 export interface TokenUsage {
   inputTokens: number;
@@ -34,7 +33,6 @@ export interface BedrockClientGenerateResponse {
 export interface BedrockClient {
   generate(
     prompt: Prompt,
-    tools: ToolDefinition[],
     cacheEnabled: boolean,
   ): Promise<BedrockClientGenerateResponse>;
 }

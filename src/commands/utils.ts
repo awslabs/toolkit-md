@@ -433,10 +433,9 @@ export function optionDescriptionFromSchema(
   let defaultValue = "";
 
   if (schema instanceof ZodDefault) {
-    defaultValue = `(default: ${
-      // biome-ignore lint/suspicious/noExplicitAny: Better way?
-      JSON.stringify((schema as ZodDefault<any>)._zod.def.defaultValue)
-    })`;
+    defaultValue = `(default: ${JSON.stringify(
+      (schema as ZodDefault<any>)._zod.def.defaultValue,
+    )})`;
   }
 
   return `${schema.description} (${env}) ${defaultValue}`;
@@ -462,6 +461,23 @@ export function camelToOptionFlag(camelCase: string): string {
   return `--${kebabCase}`;
 }
 
+const SUPPORTED_MODELS = [
+  "anthropic.claude-opus-4-5",
+  "anthropic.claude-opus-4-1",
+  "anthropic.claude-opus-4",
+  "anthropic.claude-sonnet-4-5",
+  "anthropic.claude-haiku-4-5",
+  "anthropic.claude-sonnet-4",
+  "anthropic.claude-3-7-sonnet",
+];
+
+/**
+ * Checks whether the given model ID is in the list of supported models.
+ */
+export function isSupportedModel(modelId: string): boolean {
+  return SUPPORTED_MODELS.some((model) => modelId.includes(model));
+}
+
 export async function buildContentTree(
   contentPath: string,
   defaultLanguage: Language,
@@ -478,26 +494,4 @@ export async function buildContentTree(
   entries.forEach(({ path, content }) => tree.add(path, content));
 
   return tree;
-}
-
-const SUPPORTED_MODELS = [
-  "anthropic.claude-opus-4-6",
-  "anthropic.claude-opus-4-5",
-  "anthropic.claude-opus-4-1",
-  "anthropic.claude-opus-4",
-  "anthropic.claude-sonnet-4-6",
-  "anthropic.claude-sonnet-4-5",
-  "anthropic.claude-haiku-4-5",
-  "anthropic.claude-sonnet-4",
-  "anthropic.claude-3-7-sonnet",
-];
-
-/**
- * Validates whether a model ID is supported by the toolkit.
- *
- * @param modelId - The AWS Bedrock model identifier to validate
- * @returns True if the model is supported, false otherwise
- */
-export function isSupportedModel(modelId: string): boolean {
-  return SUPPORTED_MODELS.some((model) => modelId.includes(model));
 }

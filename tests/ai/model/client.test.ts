@@ -10,16 +10,10 @@ import {
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import {
-  createWriteFileTool,
-  DefaultBedrockClient,
-  type Prompt,
-} from "../../../src/ai/index.js";
+import { DefaultBedrockClient, type Prompt } from "../../../src/ai/index.js";
 
-// Mock the BedrockRuntimeClient
 const bedrockClientMock = mockClient(BedrockRuntimeClient);
 
-// Test utilities
 const createDefaultClient = (
   modelId = "anthropic.claude-3-sonnet-20240229-v1:0",
   maxTokens = 1000,
@@ -79,7 +73,6 @@ describe("DefaultBedrockClient", () => {
 
   describe("generate", () => {
     it("should generate a response successfully", async () => {
-      // Arrange
       const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "Tell me a joke",
@@ -91,10 +84,8 @@ describe("DefaultBedrockClient", () => {
       const mockResponse = createMockResponse(responseText);
       bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
 
-      // Act
       const result = await client.generate(prompt);
 
-      // Assert
       expect(result.output).toBe(responseText);
       expectUsageStructure(result.usage, {
         inputTokens: 10,
@@ -102,7 +93,6 @@ describe("DefaultBedrockClient", () => {
         totalTokens: 25,
       });
 
-      // Verify the command was sent with the correct parameters
       expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
       expectCommandCall(0, "anthropic.claude-3-sonnet-20240229-v1:0", 1000, [
         {
@@ -116,7 +106,6 @@ describe("DefaultBedrockClient", () => {
     });
 
     it("should generate a response without context", async () => {
-      // Arrange
       const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "What is 2+2?",
@@ -127,14 +116,11 @@ describe("DefaultBedrockClient", () => {
       const mockResponse = createMockResponse(responseText, "end_turn", usage);
       bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
 
-      // Act
       const result = await client.generate(prompt);
 
-      // Assert
       expect(result.output).toBe(responseText);
       expectUsageStructure(result.usage, usage);
 
-      // Verify the command was sent without context
       expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
       expectCommandCall(0, "anthropic.claude-3-sonnet-20240229-v1:0", 1000, [
         {
@@ -144,8 +130,41 @@ describe("DefaultBedrockClient", () => {
       ]);
     });
 
+    it("should generate a response with prefill", async () => {
+      const client = createDefaultClient();
+      const prompt: Prompt = {
+        prompt: "Complete this sentence",
+        context: "You are a helpful assistant",
+        prefill: "The weather today is",
+      };
+
+      const responseText = " sunny and warm.";
+      const usage = { inputTokens: 12, outputTokens: 8, totalTokens: 20 };
+      const mockResponse = createMockResponse(responseText, "end_turn", usage);
+      bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
+
+      const result = await client.generate(prompt);
+
+      expect(result.output).toBe("The weather today is sunny and warm.");
+      expectUsageStructure(result.usage, usage);
+
+      expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
+      expectCommandCall(0, "anthropic.claude-3-sonnet-20240229-v1:0", 1000, [
+        {
+          role: "user" as ConversationRole,
+          content: [
+            { text: "You are a helpful assistant" },
+            { text: "Complete this sentence" },
+          ],
+        },
+        {
+          role: "assistant" as ConversationRole,
+          content: [{ text: "The weather today is" }],
+        },
+      ]);
+    });
+
     it("should apply transform function to response", async () => {
-      // Arrange
       const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "Say hello",
@@ -157,17 +176,14 @@ describe("DefaultBedrockClient", () => {
       const mockResponse = createMockResponse(responseText, "end_turn", usage);
       bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
 
-      // Act
       const result = await client.generate(prompt);
 
-      // Assert
       expect(result.output).toBe("HELLO THERE!");
       expectUsageStructure(result.usage, usage);
     });
 
     it("should handle caching enabled for supported models", async () => {
-      // Arrange
-      const modelId = "anthropic.claude-3-5-haiku-20241022-v1:0"; // Caching supported model
+      const modelId = "anthropic.claude-3-5-haiku-20241022-v1:0";
       const client = createDefaultClient(modelId);
       const prompt: Prompt = {
         prompt: "Tell me about caching",
@@ -185,14 +201,42 @@ describe("DefaultBedrockClient", () => {
       const mockResponse = createMockResponse(responseText, "end_turn", usage);
       bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
 
-      // Act
-      const result = await client.generate(prompt, [], true);
+      const result = await client.generate(prompt, true);
 
-      // Assert
       expect(result.output).toBe(responseText);
       expectUsageStructure(result.usage, usage);
 
-      // Verify cache point is included in the message
+      expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
+      expectCommandCall(0, modelId, 1000, [
+        {
+          role: "user" as ConversationRole,
+          content: [
+            { text: "You are a helpful assistant" },
+            { cachePoint: { type: "default" } },
+            { text: "Tell me about caching" },
+          ],
+        },
+      ]);
+    });
+
+    it("should include cache point for any model when cacheEnabled is true", async () => {
+      const modelId = "unsupported.model-v1:0";
+      const client = createDefaultClient(modelId);
+      const prompt: Prompt = {
+        prompt: "Tell me about caching",
+        context: "You are a helpful assistant",
+      };
+
+      const responseText = "Caching is enabled.";
+      const usage = { inputTokens: 10, outputTokens: 8, totalTokens: 18 };
+      const mockResponse = createMockResponse(responseText, "end_turn", usage);
+      bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
+
+      const result = await client.generate(prompt, true);
+
+      expect(result.output).toBe(responseText);
+      expectUsageStructure(result.usage, usage);
+
       expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
       expectCommandCall(0, modelId, 1000, [
         {
@@ -235,87 +279,156 @@ describe("DefaultBedrockClient", () => {
       ]);
     });
 
-    it("should throw error when response exceeds max tokens", async () => {
-      const client = createDefaultClient();
+    it("should handle max_tokens stop reason and continue generation", async () => {
+      const modelId = "anthropic.claude-3-sonnet-20240229-v1:0";
+      const maxTokens = 1000;
+      const requestRate = 0;
+      const tokenRate = 0;
+      const maxIterations = 3;
+
+      const client = new DefaultBedrockClient(
+        modelId,
+        maxTokens,
+        requestRate,
+        tokenRate,
+        maxIterations,
+      );
+
       const prompt: Prompt = {
         prompt: "Write a long story",
         context: "You are a storyteller",
       };
 
-      const mockResponse = createMockResponse(
-        "Once upon a time...",
-        "max_tokens",
-      );
-      bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
+      const firstResponse = {
+        output: {
+          message: {
+            content: [
+              { text: "Once upon a time, there was a brave knight who" },
+            ],
+            role: "assistant" as ConversationRole,
+          },
+        },
+        stopReason: "max_tokens" as StopReason,
+        usage: {
+          inputTokens: 10,
+          outputTokens: 15,
+          totalTokens: 25,
+        },
+        $metadata: { httpStatusCode: 200 },
+      };
 
-      await expect(client.generate(prompt)).rejects.toThrow(
-        "Response exceeded maximum token limit",
-      );
+      const secondResponse = {
+        output: {
+          message: {
+            content: [{ text: " saved the kingdom." }],
+            role: "assistant" as ConversationRole,
+          },
+        },
+        stopReason: "end_turn" as StopReason,
+        usage: {
+          inputTokens: 20,
+          outputTokens: 8,
+          totalTokens: 28,
+        },
+        $metadata: { httpStatusCode: 200 },
+      };
+
+      bedrockClientMock
+        .on(ConverseCommand)
+        .resolvesOnce(firstResponse)
+        .resolvesOnce(secondResponse);
+
+      const result = await client.generate(prompt);
+
+      expect(result).toEqual({
+        output:
+          "Once upon a time, there was a brave knight who saved the kingdom.",
+        usage: {
+          inputTokens: 30,
+          outputTokens: 23,
+          totalTokens: 53,
+          estimatedTokens: expect.any(Number),
+          cacheReadInputTokens: 0,
+          cacheWriteInputTokens: 0,
+        },
+      });
+
+      const commandCalls = bedrockClientMock.commandCalls(ConverseCommand);
+      expect(commandCalls.length).toBe(2);
+
+      const firstCommand = commandCalls[0].args[0].input;
+      expect(firstCommand.messages).toEqual([
+        {
+          role: "user" as ConversationRole,
+          content: [
+            { text: "You are a storyteller" },
+            { text: "Write a long story" },
+          ],
+        },
+      ]);
+
+      const secondCommand = commandCalls[1].args[0].input;
+      expect(secondCommand.messages).toEqual([
+        {
+          role: "user" as ConversationRole,
+          content: [
+            { text: "You are a storyteller" },
+            { text: "Write a long story" },
+          ],
+        },
+        {
+          role: "assistant" as ConversationRole,
+          content: [{ text: "Once upon a time, there was a brave knight who" }],
+        },
+      ]);
     });
 
     it("should throw error when maximum iterations exceeded", async () => {
       const maxIterations = 2;
       const client = createDefaultClient(undefined, 1000, maxIterations);
       const prompt: Prompt = {
-        prompt: "Keep writing files",
-      };
-      const writeTool = createWriteFileTool();
-
-      const toolUseResponse = {
-        output: {
-          message: {
-            content: [
-              {
-                toolUse: {
-                  toolUseId: "tool-1",
-                  name: "write_file",
-                  input: { path: "out.md", content: "data", mode: "create" },
-                },
-              },
-            ],
-            role: "assistant" as ConversationRole,
-          },
-        },
-        stopReason: "tool_use" as StopReason,
-        usage: { inputTokens: 10, outputTokens: 15, totalTokens: 25 },
-        $metadata: { httpStatusCode: 200 },
+        prompt: "Write a very long story",
+        context: "You are a storyteller",
       };
 
-      bedrockClientMock.on(ConverseCommand).resolves(toolUseResponse);
+      const maxTokensResponse = createMockResponse(
+        "Part of the story...",
+        "max_tokens",
+      );
+      bedrockClientMock.on(ConverseCommand).resolves(maxTokensResponse);
 
-      await expect(client.generate(prompt, [writeTool])).rejects.toThrow(
+      await expect(client.generate(prompt)).rejects.toThrow(
         "Maximum iterations breached",
       );
+
+      const commandCalls = bedrockClientMock.commandCalls(ConverseCommand);
+      expect(commandCalls.length).toBe(maxIterations + 1);
     });
 
     it("should throw error for unexpected stop reason", async () => {
-      // Arrange
       const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "Say hello",
       };
 
-      const mockResponse = createMockResponse(
-        "Hello",
-        "content_filtered", // Unexpected stop reason
-        { inputTokens: 5, outputTokens: 3, totalTokens: 8 },
-      );
+      const mockResponse = createMockResponse("Hello", "content_filtered", {
+        inputTokens: 5,
+        outputTokens: 3,
+        totalTokens: 8,
+      });
       bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
 
-      // Act & Assert
       await expect(client.generate(prompt)).rejects.toThrow(
         "Unexpected stop reason: content_filtered",
       );
     });
 
     it("should handle response without usage information", async () => {
-      // Arrange
       const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "Say hello",
       };
 
-      // Create response without usage information
       const mockResponse = {
         output: {
           message: {
@@ -325,16 +438,13 @@ describe("DefaultBedrockClient", () => {
           $unknown: undefined,
         },
         stopReason: "end_turn" as StopReason,
-        // No usage information
         $metadata: { httpStatusCode: 200 },
       };
 
       bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
 
-      // Act
       const result = await client.generate(prompt);
 
-      // Assert
       expect(result.output).toBe("Hello!");
       expectUsageStructure(result.usage, {
         inputTokens: 0,
@@ -344,7 +454,6 @@ describe("DefaultBedrockClient", () => {
     });
 
     it("should handle prompt with sample output", async () => {
-      // Arrange
       const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "Generate a greeting",
@@ -357,14 +466,11 @@ describe("DefaultBedrockClient", () => {
       const mockResponse = createMockResponse(responseText, "end_turn", usage);
       bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
 
-      // Act
       const result = await client.generate(prompt);
 
-      // Assert
       expect(result.output).toBe(responseText);
       expectUsageStructure(result.usage, usage);
 
-      // The sample output should be used for token estimation but not sent to the model
       expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
       expectCommandCall(0, "anthropic.claude-3-sonnet-20240229-v1:0", 1000, [
         {
@@ -375,182 +481,6 @@ describe("DefaultBedrockClient", () => {
           ],
         },
       ]);
-    });
-
-    it("should handle tool_use stop reason with write_file create mode", async () => {
-      const client = createDefaultClient();
-      const prompt: Prompt = {
-        prompt: "Write a file for me",
-      };
-      const writeTool = createWriteFileTool();
-
-      const toolUseResponse = {
-        output: {
-          message: {
-            content: [
-              {
-                toolUse: {
-                  toolUseId: "tool-1",
-                  name: "write_file",
-                  input: {
-                    path: "output.md",
-                    content: "# Hello World",
-                    mode: "create",
-                  },
-                },
-              },
-            ],
-            role: "assistant" as ConversationRole,
-          },
-        },
-        stopReason: "tool_use" as StopReason,
-        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
-        $metadata: { httpStatusCode: 200 },
-      };
-
-      const finalResponse = createMockResponse("Done writing the file.");
-      bedrockClientMock
-        .on(ConverseCommand)
-        .resolvesOnce(toolUseResponse)
-        .resolvesOnce(finalResponse);
-
-      const result = await client.generate(prompt, [writeTool]);
-
-      expect(result.output).toBe("Done writing the file.");
-      expect(writeTool.files).toEqual(
-        new Map([["output.md", "# Hello World"]]),
-      );
-      expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(2);
-    });
-
-    it("should handle tool_use stop reason with write_file append mode", async () => {
-      const client = createDefaultClient();
-      const prompt: Prompt = {
-        prompt: "Write a file in parts",
-      };
-      const writeTool = createWriteFileTool();
-
-      const createResponse = {
-        output: {
-          message: {
-            content: [
-              {
-                toolUse: {
-                  toolUseId: "tool-1",
-                  name: "write_file",
-                  input: {
-                    path: "output.md",
-                    content: "# Title\n",
-                    mode: "create",
-                  },
-                },
-              },
-            ],
-            role: "assistant" as ConversationRole,
-          },
-        },
-        stopReason: "tool_use" as StopReason,
-        usage: { inputTokens: 10, outputTokens: 15, totalTokens: 25 },
-        $metadata: { httpStatusCode: 200 },
-      };
-
-      const appendResponse = {
-        output: {
-          message: {
-            content: [
-              {
-                toolUse: {
-                  toolUseId: "tool-2",
-                  name: "write_file",
-                  input: {
-                    path: "output.md",
-                    content: "More content",
-                    mode: "append",
-                  },
-                },
-              },
-            ],
-            role: "assistant" as ConversationRole,
-          },
-        },
-        stopReason: "tool_use" as StopReason,
-        usage: { inputTokens: 20, outputTokens: 10, totalTokens: 30 },
-        $metadata: { httpStatusCode: 200 },
-      };
-
-      const finalResponse = createMockResponse("All done.");
-      bedrockClientMock
-        .on(ConverseCommand)
-        .resolvesOnce(createResponse)
-        .resolvesOnce(appendResponse)
-        .resolvesOnce(finalResponse);
-
-      const result = await client.generate(prompt, [writeTool]);
-
-      expect(result.output).toBe("All done.");
-      expect(writeTool.files).toEqual(
-        new Map([["output.md", "# Title\nMore content"]]),
-      );
-      expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(3);
-    });
-
-    it("should handle tool_use with multiple files", async () => {
-      const client = createDefaultClient();
-      const prompt: Prompt = {
-        prompt: "Create two files",
-      };
-      const writeTool = createWriteFileTool();
-
-      const toolUseResponse = {
-        output: {
-          message: {
-            content: [
-              {
-                toolUse: {
-                  toolUseId: "tool-1",
-                  name: "write_file",
-                  input: {
-                    path: "file1.md",
-                    content: "File 1",
-                    mode: "create",
-                  },
-                },
-              },
-              {
-                toolUse: {
-                  toolUseId: "tool-2",
-                  name: "write_file",
-                  input: {
-                    path: "file2.md",
-                    content: "File 2",
-                    mode: "create",
-                  },
-                },
-              },
-            ],
-            role: "assistant" as ConversationRole,
-          },
-        },
-        stopReason: "tool_use" as StopReason,
-        usage: { inputTokens: 10, outputTokens: 25, totalTokens: 35 },
-        $metadata: { httpStatusCode: 200 },
-      };
-
-      const finalResponse = createMockResponse("Created both files.");
-      bedrockClientMock
-        .on(ConverseCommand)
-        .resolvesOnce(toolUseResponse)
-        .resolvesOnce(finalResponse);
-
-      const result = await client.generate(prompt, [writeTool]);
-
-      expect(result.output).toBe("Created both files.");
-      expect(writeTool.files).toEqual(
-        new Map([
-          ["file1.md", "File 1"],
-          ["file2.md", "File 2"],
-        ]),
-      );
     });
 
     it("should pass outputConfig when prompt has outputSchema", async () => {

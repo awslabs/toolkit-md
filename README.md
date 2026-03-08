@@ -398,16 +398,21 @@ Toolkit for Markdown uses AWS Bedrock for AI processing. Ensure the following is
 - AWS credentials configured
 - Access to Bedrock models in the appropriate AWS account
 
-**Supported Models:**
+## Supported Models
 
-The tool requires Anthropic Claude models via Amazon Bedrock. The following model families are supported:
+The following Amazon Bedrock model IDs are supported:
 
-- Claude Opus 4 (including 4.1, 4.5, 4.6)
-- Claude Sonnet 4 (including 4.5, 4.6)
-- Claude Haiku 4.5
-- Claude 3.7 Sonnet
+- `anthropic.claude-opus-4-5`
+- `anthropic.claude-opus-4-1`
+- `anthropic.claude-opus-4`
+- `anthropic.claude-sonnet-4-5`
+- `anthropic.claude-haiku-4-5`
+- `anthropic.claude-sonnet-4`
+- `anthropic.claude-3-7-sonnet`
 
-Model IDs are matched using a prefix, so both standard and cross-region inference profiles (e.g. `us.anthropic.claude-sonnet-4-5-20250929-v1:0`) are accepted. Other model providers and older Claude versions (such as Claude 3.5 Haiku) are not supported.
+Model IDs are matched using a prefix, so versioned variants (e.g. `anthropic.claude-sonnet-4-5-20250929-v1:0`) and cross-region inference profiles (e.g. `global.anthropic.claude-sonnet-4-5-20250929-v1:0`) are also supported.
+
+Claude 4.6 models (Opus 4.6 and Sonnet 4.6) are not supported due to their removal of prefill support, which this tool relies on for multi-iteration generation.
 
 ## Commands
 
