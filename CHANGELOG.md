@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/awslabs/toolkit-md/compare/v0.2.0...v0.2.1) (2026-03-08)
+
+
+### Bug Fixes
+
+* Revert Claude 4.6 support ([#43](https://github.com/awslabs/toolkit-md/issues/43)) ([f765d52](https://github.com/awslabs/toolkit-md/commit/f765d5297000a8bf94885f7dbd45c7d6a177d2ec))
+
 ## [0.2.0](https://github.com/awslabs/toolkit-md/compare/v0.1.8...v0.2.0) (2026-03-07)
 
 
