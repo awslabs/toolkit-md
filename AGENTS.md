@@ -15,7 +15,6 @@ src/                    # Source code
 ├── ai/                # AI model integration and prompts
 │   ├── model/         # Bedrock client and rate limiting
 │   ├── prompts/       # Prompt templates for various operations
-│   ├── tools/         # Tool definitions for model interactions
 │   └── mcp/           # Model Context Protocol server
 ├── check/             # Content validation (lint, links, images)
 ├── content/           # Content processing

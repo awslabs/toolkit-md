@@ -139,10 +139,7 @@ export class ConfigManager {
       return result as T;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        // Format Zod error messages
-        const errorMessages = error.issues
-          .map((e: { message: string }) => e.message)
-          .join(", ");
+        const errorMessages = error.issues.map((e) => e.message).join(", ");
         throw new Error(`Invalid configuration for ${path}: ${errorMessages}`);
       }
       throw error;

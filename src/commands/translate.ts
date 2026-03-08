@@ -16,11 +16,7 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
-import {
-  buildTranslatePrompt,
-  createWriteFileTool,
-  DefaultBedrockClient,
-} from "../ai/index.js";
+import { buildTranslatePrompt, DefaultBedrockClient } from "../ai/index.js";
 import {
   CONFIG_CHECK_TRANSLATION,
   CONFIG_FORCE_TRANSLATION,
@@ -155,7 +151,6 @@ async function executeAction(
     5,
   );
 
-  // Create target tree to check for existing translations
   const targetTree = await utils.buildContentTree(
     translationDir,
     skipFileSuffix ? targetLanguage : defaultLanguage,
@@ -172,7 +167,6 @@ async function executeAction(
     removeTargetNode(node, initialTargetNodes);
 
     if (node.content) {
-      // Find corresponding node inß target tree
       const targetNode = targetTree.getNode(node.path);
       const existingTranslation = targetNode?.content;
 
@@ -217,38 +211,25 @@ async function executeAction(
         exemplars,
       );
 
-      const writeTool = createWriteFileTool();
-
       const { response } = await utils.withSpinner(
         `Processing ${node.filePath}`,
         async () => {
-          return {
-            response: await client.generate(prompt, [writeTool], enableCache),
-          };
+          return { response: await client.generate(prompt, enableCache) };
         },
       );
-
-      const translatedContent = writeTool.files.get(node.filePath);
-
-      if (!translatedContent) {
-        console.log(
-          `⏭️  Skipped ${node.filePath} (no file output from model)\n`,
-        );
-        continue;
-      }
 
       if (write) {
         let writtenNode = targetNode;
 
         if (!writtenNode) {
-          writtenNode = await targetTree.create(node.path, translatedContent);
+          writtenNode = await targetTree.create(node.path, response.output);
         } else {
-          await targetTree.updateContent(writtenNode, translatedContent);
+          await targetTree.updateContent(writtenNode, response.output);
         }
 
         console.log(`📜 Wrote to file ${writtenNode.filePath}`);
       } else {
-        console.log(translatedContent);
+        console.log(response.output);
       }
 
       console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);

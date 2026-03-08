@@ -21,7 +21,6 @@
 import { z } from "zod";
 import { Language } from "../languages/index.js";
 
-// Extend Zod's ZodType to include our metadata
 declare module "zod" {
   interface ZodType {
     cli: string;
@@ -30,14 +29,12 @@ declare module "zod" {
   }
 }
 
-// Helper function to add CLI and environment metadata to a schema
 function withConfig<T extends z.ZodType>(
   schema: T,
   cli: string,
   env?: string,
   envPrefix?: string,
 ): T {
-  // Add metadata to the schema
   schema.cli = cli;
   schema.env = env;
   schema.envPrefix = envPrefix;
@@ -274,8 +271,6 @@ export const CONFIG_MAX_IMAGE_SIZE = withConfig(
   "TKMD_AI_MAX_IMAGE_SIZE",
 );
 
-// Define the configuration schema using Zod's native description functionality
-
 export const CONFIG_CHECK_LINK_TIMEOUT = withConfig(
   z
     .union([
@@ -407,5 +402,4 @@ export const configSchema = z.object({
   }),
 });
 
-// Extract TypeScript type from the schema
 export type Config = z.infer<typeof configSchema>;
