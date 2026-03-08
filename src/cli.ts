@@ -26,7 +26,7 @@ import {
 } from "./commands/index.js";
 
 // x-release-please-start-version
-export const VERSION = "0.2.0";
+export const VERSION = "0.2.1";
 // x-release-please-end
 
 process.on("SIGINT", () => {
