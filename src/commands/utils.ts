@@ -21,7 +21,7 @@ import { type Command, Option } from "commander";
 import { diffWordsWithSpace } from "diff";
 import ora from "ora";
 import type z from "zod";
-import { ZodArray, ZodBoolean, ZodDefault } from "zod";
+import { ZodArray, ZodBoolean, ZodDefault, ZodOptional } from "zod";
 import type { ContextStrategy, Exemplar, TokenUsage } from "../ai/index.js";
 import type {
   CheckCategory,
@@ -402,33 +402,30 @@ export function printTokenUsage(usage: TokenUsage) {
   return `Usage: Input ${usage.inputTokens}${cacheUsage} | Output ${usage.outputTokens} | Total ${usage.totalTokens} | Estimated ${usage.estimatedTokens}`;
 }
 
-export function optionForConfigSchema(
-  command: Command,
-  // biome-ignore lint/suspicious/noExplicitAny: Better handling of zod?
-  schema: z.ZodDefault<any> | z.ZodOptional<any>,
-) {
-  const flags = camelToOptionFlag(schema.cli);
+export function optionForConfigSchema(command: Command, schema: z.ZodType) {
+  const meta = schema.meta() as z.GlobalMeta | undefined;
+  const cli = meta?.cli ?? "";
+  const flags = camelToOptionFlag(cli);
+  const inner = unwrapSchema(schema);
 
   let flagString = `${flags} <value>`;
 
-  if (schema._zod.def.innerType instanceof ZodBoolean) {
+  if (inner instanceof ZodBoolean) {
     flagString = flags;
   }
 
   const option = new Option(flagString, optionDescriptionFromSchema(schema));
 
-  if (schema._zod.def.innerType instanceof ZodArray) {
+  if (inner instanceof ZodArray) {
     option.argParser(collect);
   }
 
   return command.addOption(option);
 }
 
-export function optionDescriptionFromSchema(
-  // biome-ignore lint/suspicious/noExplicitAny: Better way?
-  schema: z.ZodDefault<any> | z.ZodOptional<any>,
-) {
-  const env = schema.envPrefix ? `${schema.envPrefix}_*` : schema.env;
+export function optionDescriptionFromSchema(schema: z.ZodType) {
+  const meta = schema.meta() as z.GlobalMeta | undefined;
+  const env = meta?.envPrefix ? `${meta.envPrefix}_*` : meta?.env;
 
   let defaultValue = "";
 
@@ -439,6 +436,16 @@ export function optionDescriptionFromSchema(
   }
 
   return `${schema.description} (${env}) ${defaultValue}`;
+}
+
+function unwrapSchema(schema: z.ZodType): z.ZodType {
+  if (schema instanceof ZodDefault) {
+    return (schema as ZodDefault<any>)._zod.def.innerType as z.ZodType;
+  }
+  if (schema instanceof ZodOptional) {
+    return (schema as any)._zod.def.innerType as z.ZodType;
+  }
+  return schema;
 }
 
 /**
