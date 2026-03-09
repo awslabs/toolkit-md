@@ -18,7 +18,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { z } from "zod";
+import {
+  ZodArray,
+  ZodDefault,
+  ZodError,
+  ZodObject,
+  ZodOptional,
+  type z,
+} from "zod";
 import { type Config, configSchema } from "./schema.js";
 
 const CONFIG_FILE_NAMES = [
@@ -27,15 +34,27 @@ const CONFIG_FILE_NAMES = [
   "toolkit-md.config.json",
 ];
 
+interface ConfigEntry {
+  schema: z.ZodType;
+  cli?: string;
+  env?: string;
+  envPrefix?: string;
+  isArray: boolean;
+}
+
 export class ConfigManager {
   private fileConfig: Partial<Config> = {};
   private configFilePath: string | null = null;
   private cliOptions: any = {};
+  private entries: Map<string, ConfigEntry>;
 
   constructor(
     private cwd: string,
     private schema = configSchema,
-  ) {}
+  ) {
+    this.entries = new Map();
+    this.buildEntries(this.schema, "");
+  }
 
   public getCwd() {
     return this.cwd;
@@ -50,10 +69,7 @@ export class ConfigManager {
     cliOptions: any = {},
     configPath?: string,
   ): Promise<void> {
-    // Store CLI options for later use
     this.cliOptions = cliOptions;
-
-    // Load configuration from file(s)
     await this.loadFromConfigFile(configPath);
   }
 
@@ -71,25 +87,18 @@ export class ConfigManager {
    * @throws Error if validation fails
    */
   public get<T>(path: string, defaultOverride?: T): T {
-    // Find the schema node for this path
-    const schemaNode = this.getSchemaNodeForPath(path);
+    const entry = this.entries.get(path);
 
-    if (!schemaNode) {
+    if (!entry) {
       throw new Error(`Config path ${path} is not valid`);
     }
 
     let value: any;
 
-    // 1. Check CLI options (highest priority)
-    if (schemaNode.cli && this.cliOptions[schemaNode.cli] !== undefined) {
-      value = this.cliOptions[schemaNode.cli];
-    }
-    // 2. Check environment variables
-    else if (schemaNode.env) {
-      const envVars = Array.isArray(schemaNode.env)
-        ? schemaNode.env
-        : [schemaNode.env];
-
+    if (entry.cli && this.cliOptions[entry.cli] !== undefined) {
+      value = this.cliOptions[entry.cli];
+    } else if (entry.env) {
+      const envVars = Array.isArray(entry.env) ? entry.env : [entry.env];
       for (const envVar of envVars) {
         if (process.env[envVar] !== undefined) {
           value = process.env[envVar];
@@ -98,28 +107,18 @@ export class ConfigManager {
       }
     }
 
-    // Special handling for array values from environment variables with prefix
-    if (
-      value === undefined &&
-      schemaNode._zod.def.innerType instanceof z.ZodArray &&
-      schemaNode.envPrefix
-    ) {
+    if (value === undefined && entry.isArray && entry.envPrefix) {
       const values: any[] = [];
-
-      // Collect all environment variables with the prefix
       for (const [key, val] of Object.entries(process.env)) {
-        if (key.startsWith(schemaNode.envPrefix + ("_" as const)) && val) {
+        if (key.startsWith(`${entry.envPrefix}_`) && val) {
           values.push(val);
         }
       }
-
-      // If we found any values, use them
       if (values.length > 0) {
         value = values;
       }
     }
 
-    // 3. Check config file
     if (value === undefined) {
       const fileValue = this.getNestedProperty<any>(this.fileConfig, path);
       if (fileValue !== undefined) {
@@ -127,18 +126,14 @@ export class ConfigManager {
       }
     }
 
-    // 4. Use default value from schema or provided override
     if (value === undefined) {
       value = defaultOverride;
     }
 
-    // Validate and transform using Zod
     try {
-      // Parse the value through the schema node
-      const result = schemaNode.parse(value);
-      return result as T;
+      return entry.schema.parse(value) as T;
     } catch (error) {
-      if (error instanceof z.ZodError) {
+      if (error instanceof ZodError) {
         const errorMessages = error.issues.map((e) => e.message).join(", ");
         throw new Error(`Invalid configuration for ${path}: ${errorMessages}`);
       }
@@ -153,30 +148,37 @@ export class ConfigManager {
     return this.configFilePath;
   }
 
-  /**
-   * Find the schema node for a given path
-   */
-  private getSchemaNodeForPath(path: string): z.ZodDefault<any> | undefined {
-    const keys = path.split(".");
-    let current: any = this.schema;
-
-    for (const key of keys) {
-      if (!current) return undefined;
-
-      // Handle object schemas
-      if (current instanceof z.ZodObject) {
-        const shape = current.shape;
-        current = shape[key];
+  private buildEntries(schema: z.ZodType, prefix: string): void {
+    if (schema instanceof ZodObject) {
+      for (const [key, value] of Object.entries(
+        (schema as ZodObject<any>).shape,
+      )) {
+        const fullPath = prefix ? `${prefix}.${key}` : key;
+        this.buildEntries(value as z.ZodType, fullPath);
       }
-      // Handle array schemas
-      else if (current instanceof z.ZodArray && !Number.isNaN(key)) {
-        current = current.element;
-      } else {
-        return undefined;
-      }
+      return;
     }
 
-    return current;
+    const meta = schema.meta() as z.GlobalMeta | undefined;
+    const isArray = this.unwrapSchema(schema) instanceof ZodArray;
+
+    this.entries.set(prefix, {
+      schema,
+      cli: meta?.cli,
+      env: meta?.env,
+      envPrefix: meta?.envPrefix,
+      isArray,
+    });
+  }
+
+  private unwrapSchema(schema: z.ZodType): z.ZodType {
+    if (schema instanceof ZodDefault) {
+      return (schema as ZodDefault<any>)._zod.def.innerType as z.ZodType;
+    }
+    if (schema instanceof ZodOptional) {
+      return (schema as ZodOptional<any>)._zod.def.innerType as z.ZodType;
+    }
+    return schema;
   }
 
   /**
@@ -187,16 +189,12 @@ export class ConfigManager {
     try {
       let configFilePath: string | null = null;
 
-      // 1. Try explicit path if provided
       if (explicitPath) {
         if (fs.existsSync(explicitPath)) {
           configFilePath = explicitPath;
-        } else {
-          // Silently continue to other config file locations
         }
       }
 
-      // 2. Try current directory
       if (!configFilePath) {
         for (const fileName of CONFIG_FILE_NAMES) {
           const filePath = path.join(this.cwd, fileName);
@@ -207,7 +205,6 @@ export class ConfigManager {
         }
       }
 
-      // 3. Try home directory
       if (!configFilePath) {
         for (const fileName of CONFIG_FILE_NAMES) {
           const filePath = path.join(os.homedir(), fileName);
@@ -218,13 +215,11 @@ export class ConfigManager {
         }
       }
 
-      // If we found a config file, load and parse it
       if (configFilePath) {
         const fileContent = await fs.promises.readFile(configFilePath, "utf8");
         this.fileConfig = JSON.parse(fileContent);
         this.configFilePath = configFilePath;
       } else {
-        // No config file found, use empty object
         this.fileConfig = {};
       }
     } catch (error: any) {
