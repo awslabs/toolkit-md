@@ -18,4 +18,5 @@ export * from "./checker.js";
 export * from "./imageChecker.js";
 export * from "./linkChecker.js";
 export * from "./lintChecker.js";
+export * from "./spellChecker.js";
 export * from "./types.js";

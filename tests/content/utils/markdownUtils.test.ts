@@ -454,3 +454,102 @@ More text
     ]);
   });
 });
+
+describe("extractMarkdownElements - proseSegments", () => {
+  test("should extract text nodes from paragraphs", () => {
+    const content = "# Heading\n\nSome paragraph text.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.length).toBeGreaterThan(0);
+    expect(proseSegments.some((s) => s.text === "Some paragraph text.")).toBe(
+      true,
+    );
+  });
+
+  test("should extract heading text", () => {
+    const content = "# My Title\n\nBody text.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.some((s) => s.text === "My Title")).toBe(true);
+  });
+
+  test("should not include code block content", () => {
+    const content = "# Heading\n\n```python\nnotaword = 1\n```\n\nReal text.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.some((s) => s.text.includes("notaword"))).toBe(false);
+  });
+
+  test("should not include inline code content", () => {
+    const content = "Use `notaword` in your code.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.some((s) => s.text.includes("notaword"))).toBe(false);
+  });
+
+  test("should not include leaf directive attributes", () => {
+    const content = "# Heading\n\n::video{src=something}\n\nReal text.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.some((s) => s.text.includes("something"))).toBe(false);
+  });
+
+  test("should include prose children of container directives", () => {
+    const content =
+      "# Heading\n\n:::note\nThis is a note.\n:::\n\nReal text.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.some((s) => s.text.includes("This is a note."))).toBe(
+      true,
+    );
+  });
+
+  test("should not include container directive content", () => {
+    const content =
+      "# Heading\n\n:::code{lang=python}\nnotaword = 1\n:::\n\nReal text.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.some((s) => s.text.includes("notaword"))).toBe(false);
+  });
+
+  test("should return empty array for content with only code", () => {
+    const content = "```\nonly code\n```\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments).toEqual([]);
+  });
+
+  test("should include correct line and column positions", () => {
+    const content = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    const first = proseSegments.find((s) => s.text === "First paragraph.");
+    const second = proseSegments.find((s) => s.text === "Second paragraph.");
+    expect(first).toBeDefined();
+    expect(first?.line).toBe(3);
+    expect(first?.column).toBe(1);
+    expect(second).toBeDefined();
+    expect(second?.line).toBe(5);
+  });
+
+  test("should include link text but not link URLs", () => {
+    const content = "[Click here](https://example.com/notaword)\n";
+    const { proseSegments } = extractMarkdownElements(content);
+    expect(proseSegments.some((s) => s.text === "Click here")).toBe(true);
+    expect(proseSegments.some((s) => s.text.includes("notaword"))).toBe(false);
+  });
+
+  test("should skip prose inside directives listed in skipDirectives", () => {
+    const content =
+      "# Heading\n\n:::video\nSome video caption text.\n:::\n\nReal text.\n";
+    const { proseSegments } = extractMarkdownElements(content, {
+      skipDirectives: ["video"],
+    });
+    expect(proseSegments.some((s) => s.text.includes("video caption"))).toBe(
+      false,
+    );
+    expect(proseSegments.some((s) => s.text === "Real text.")).toBe(true);
+  });
+
+  test("should include prose inside directives not listed in skipDirectives", () => {
+    const content =
+      "# Heading\n\n:::note\nImportant note text.\n:::\n\nReal text.\n";
+    const { proseSegments } = extractMarkdownElements(content, {
+      skipDirectives: ["video"],
+    });
+    expect(
+      proseSegments.some((s) => s.text.includes("Important note text.")),
+    ).toBe(true);
+  });
+});

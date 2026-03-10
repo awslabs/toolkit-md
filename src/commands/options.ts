@@ -22,6 +22,8 @@ import {
   CONFIG_CHECK_LINT_IGNORE_RULES,
   CONFIG_CHECK_MIN_SEVERITY,
   CONFIG_CHECK_SKIP_EXTERNAL_LINKS,
+  CONFIG_CHECK_SPELL_IGNORE_WORDS_FILE,
+  CONFIG_CHECK_SPELL_SKIP_DIRECTIVES,
   CONFIG_CONTENT_DIR,
   CONFIG_CONTEXT_STRATEGY,
   CONFIG_DEFAULT_LANGUAGE,
@@ -100,6 +102,8 @@ export function checkOptions(command: Command) {
   utils.optionForConfigSchema(command, CONFIG_CHECK_SKIP_EXTERNAL_LINKS);
   utils.optionForConfigSchema(command, CONFIG_CHECK_LINK_IGNORE_PATTERNS);
   utils.optionForConfigSchema(command, CONFIG_CHECK_LINT_IGNORE_RULES);
+  utils.optionForConfigSchema(command, CONFIG_CHECK_SPELL_IGNORE_WORDS_FILE);
+  utils.optionForConfigSchema(command, CONFIG_CHECK_SPELL_SKIP_DIRECTIVES);
   utils.optionForConfigSchema(command, CONFIG_CHECK_MIN_SEVERITY);
   utils.optionForConfigSchema(command, CONFIG_CHECK_CATEGORIES);
   utils.optionForConfigSchema(command, CONFIG_STATIC_PREFIX);

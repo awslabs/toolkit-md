@@ -9,7 +9,7 @@ CLI tools for maintaining Markdown content like documentation and tutorials.
 
 ## Features
 
-- **Content Validation** - Check Markdown files for lint issues, broken links, and missing images
+- **Content Validation** - Check Markdown files for lint issues, broken links, missing images, and spelling errors
 - **AI-Powered Content Review** - Automatically review and improve your Markdown content using Amazon Bedrock
 - **Multi-Language Translation** - Translate content between 8+ supported languages
 - **Intelligent Q&A** - Ask questions about your content and get AI-powered answers
@@ -99,7 +99,7 @@ toolkit-md map ./docs --images
 
 ### Check Content
 
-Run non-AI validation checks on Markdown files including linting, broken link detection, and missing image detection:
+Run non-AI validation checks on Markdown files including linting, broken link detection, missing image detection, and spell checking:
 
 ```bash
 toolkit-md check ./docs
@@ -127,6 +127,24 @@ Run only specific check categories:
 
 ```bash
 toolkit-md check ./docs --category lint --category link
+```
+
+Enable spell checking (disabled by default):
+
+```bash
+toolkit-md check ./docs --category lint --category link --category image --category spell
+```
+
+Ignore specific words during spell checking using a words file (one word per line):
+
+```bash
+toolkit-md check ./docs --ignore-words-file .spelling-ignore
+```
+
+Skip spell checking inside specific directives:
+
+```bash
+toolkit-md check ./docs --skip-directive video --skip-directive tabs
 ```
 
 ## Configuration
@@ -165,15 +183,17 @@ Toolkit for Markdown supports configuration through:
 | `ai.translation.directory`      | `--translation-dir`  | `TKMD_AI_TRANSLATION_DIRECTORY`        | Directory where translated content is stored, if not specified defaults to source directory  | `undefined`                                          |
 | `ai.translation.skipFileSuffix` | `--skip-file-suffix` | `TKMD_AI_TRANSLATION_SKIP_FILE_SUFFIX` | Omit the language code suffix for translated files ('example.fr.md' becomes 'example.md')    | `false`                                              |
 | `check.minSeverity`            | `--min-severity`    | `TKMD_CHECK_MIN_SEVERITY`               | Minimum severity level to report (error, warning)                                            | `"warning"`                                          |
-| `check.categories`            | `--category`         | `TKMD_CHECK_CATEGORY_*`                 | Check categories to run (lint, link, image), can be specified multiple times                  | `["lint", "link", "image"]`                          |
+| `check.categories`            | `--category`         | `TKMD_CHECK_CATEGORY_*`                 | Check categories to run (lint, link, image, spell), can be specified multiple times           | `["lint", "link", "image"]`                          |
 | `check.links.timeout`          | `--link-timeout`     | `TKMD_CHECK_LINK_TIMEOUT`              | Timeout in milliseconds for HTTP link and image checks                                       | `5000`                                               |
 | `check.links.skipExternal`     | `--skip-external-links` | `TKMD_CHECK_SKIP_EXTERNAL_LINKS`    | Skip validation of external HTTP/HTTPS links and images                                      | `false`                                              |
 | `check.links.ignorePatterns`   | `--ignore-link-pattern` | `TKMD_CHECK_LINK_IGNORE_PATTERN_*`  | Regex patterns for URLs to ignore during link checking, can be specified multiple times       | `[]`                                                 |
 | `check.lint.ignoreRules`       | `--ignore-rule`      | `TKMD_CHECK_LINT_IGNORE_RULE_*`        | remark-lint rule names to ignore (without the remark-lint- prefix), can be specified multiple times | `[]`                                                 |
+| `check.spell.ignoreWordsFile` | `--ignore-words-file` | `TKMD_CHECK_SPELL_IGNORE_WORDS_FILE`   | Path to a file containing words to ignore during spell checking, one word per line             | `undefined`                                          |
+| `check.spell.skipDirectives`  | `--skip-directive`   | `TKMD_CHECK_SPELL_SKIP_DIRECTIVE_*`    | Directive names whose content should be skipped during spell checking, can be specified multiple times | `[]`                                                 |
 | `staticPrefix`                 | `--static-prefix`    | `TKMD_STATIC_PREFIX`                   | URL prefix indicating a link points to a file in the static directory                        | `undefined`                                          |
 | `staticDir`                    | `--static-dir`       | `TKMD_STATIC_DIR`                      | Directory relative to the cwd where static assets are stored, used with staticPrefix         | `undefined`                                          |
 
-**Note:** For array values (exemplars, styleGuides, ignoreRules, ignorePatterns), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
+**Note:** For array values (exemplars, styleGuides, ignoreRules, ignorePatterns, skipDirectives), the environment variable referenced above is treated as a prefix: `TKMD_AI_EXEMPLAR_FIRST`, `TKMD_AI_EXEMPLAR_SECOND`, etc.
 
 ### Configuration File Format
 
@@ -216,6 +236,10 @@ Create a `.toolkit-mdrc` file in JSON format:
     },
     "lint": {
       "ignoreRules": ["maximum-line-length"]
+    },
+    "spell": {
+      "ignoreWordsFile": ".spelling-ignore",
+      "skipDirectives": ["video", "tabs"]
     }
   },
   "staticPrefix": "/static/",
@@ -542,7 +566,7 @@ toolkit-md map ./docs --images
 
 ### `check`
 
-Validates Markdown content without AI by running linting checks (via remark-lint), verifying that local link targets exist, and confirming that referenced images are present. Remote links and images are validated with HTTP HEAD requests. This command requires no AWS credentials and is suitable for CI pipelines. Exits with code 1 if any errors are found.
+Validates Markdown content without AI by running linting checks (via remark-lint), verifying that local link targets exist, and confirming that referenced images are present. Spell checking of prose content (via cspell) is also available but disabled by default and can be enabled by adding `spell` to the `--category` option. Remote links and images are validated with HTTP HEAD requests. This command requires no AWS credentials and is suitable for CI pipelines. Exits with code 1 if any errors are found.
 
 **Example:**
 
@@ -567,6 +591,8 @@ toolkit-md check ./docs --ignore-rule maximum-line-length --ignore-rule no-html
 - `--link-timeout`
 - `--skip-external-links`
 - `--ignore-rule`
+- `--ignore-words-file`
+- `--skip-directive`
 - `--min-severity`
 - `--category`
 - `--static-prefix`
@@ -639,7 +665,7 @@ The following MCP tools are provided:
 | `content_best_practices`       | Response contains style guide and exemplar content as configured for the specified project. It the `targetLanguage` is provided it will also load style guides for that language and provide them in the response. |
 | `content_review_guidance`      | Response contains guidance for the model to systematically review Markdown content for a given project for general issues and best practices.                                                                      |
 | `content_translation_guidance` | Response contains guidance for the model to translate Markdown for a given project to another language. It helps the model locate both source content as well as existing translated content to use for context.   |
-| `run_checks`                   | Runs lint, link, and image checks on specified Markdown content files relative to the content directory. Supports filtering by severity and category.                                                              |
+| `run_checks`                   | Runs lint, link, image, and spell checks on specified Markdown content files relative to the content directory. Supports filtering by severity and category.                                                       |
 
 ## Development
 

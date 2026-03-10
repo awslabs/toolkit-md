@@ -33,7 +33,7 @@ export function registerRunChecksTool(
     {
       title: "Run Content Checks",
       description:
-        "Runs lint, link, and image checks on specified Markdown content files. Files must be specified as paths relative to the content directory.",
+        "Runs lint, link, image, and spell checks on specified Markdown content files. Files must be specified as paths relative to the content directory.",
       inputSchema: {
         projectDirectory: z
           .string()
@@ -50,7 +50,7 @@ export function registerRunChecksTool(
           )
           .optional(),
         categories: z
-          .array(z.enum(["lint", "link", "image"]))
+          .array(z.enum(["lint", "link", "image", "spell"]))
           .describe("Check categories to run, overrides project config")
           .optional(),
       },
@@ -84,7 +84,12 @@ export function registerRunChecksTool(
       });
 
       const checkOpts: CheckOptions = {
-        ...utils.getCheckConfig(config, contentDir, contentDir),
+        ...(await utils.getCheckConfig(
+          config,
+          contentDir,
+          contentDir,
+          language.code,
+        )),
         contentTree: tree,
         ...(minSeverity && { minSeverity }),
         ...(categories && { categories }),

@@ -46,7 +46,7 @@ export function createCheckCommand(): Command {
   command
     .argument("<content>", "file path to content to check")
     .description(
-      "Checks content for linting issues, broken links, and missing images",
+      "Checks content for linting issues, broken links, missing images, and spelling errors",
     )
     .action(utils.withErrorHandling("Check", executeAction));
 
@@ -79,7 +79,12 @@ async function executeAction(
   const nodes = tree.getFlattenedTree();
 
   const result = await checkAll(nodes, {
-    ...utils.getCheckConfig(config, contentDir, rootContentDir),
+    ...(await utils.getCheckConfig(
+      config,
+      contentDir,
+      rootContentDir,
+      language.code,
+    )),
     contentTree: tree,
   });
 
