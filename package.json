@@ -27,7 +27,7 @@
     "debug": "tsx --inspect src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "license-check": "license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;Python-2.0' --summary"
+    "license-check": "license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;Python-2.0' --excludePackages '@cspell/dict-en-common-misspellings@2.1.12' --summary"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +36,7 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "chalk": "^5.3.0",
     "commander": "^14.0.0",
+    "cspell-lib": "^9.7.0",
     "diff": "^7.0.0",
     "globby": "^14.0.2",
     "gray-matter": "^4.0.3",

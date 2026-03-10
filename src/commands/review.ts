@@ -196,7 +196,12 @@ async function executeAction(
 
   const reviewCheck = config.get<boolean>("ai.review.runChecks");
   const checkOpts = reviewCheck
-    ? utils.getCheckConfig(config, contentDir, utils.getContentDir(config))
+    ? await utils.getCheckConfig(
+        config,
+        contentDir,
+        utils.getContentDir(config),
+        language.code,
+      )
     : null;
 
   const diffs: FileDiff[] = [];

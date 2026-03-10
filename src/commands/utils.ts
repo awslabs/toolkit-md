@@ -184,11 +184,19 @@ export function getLanguages(config: ConfigManager): {
   return { language, defaultLanguage };
 }
 
-export function getCheckConfig(
+export async function getCheckConfig(
   config: ConfigManager,
   contentDir: string,
   rootContentDir?: string,
-): CheckOptions {
+  locale?: string,
+): Promise<CheckOptions> {
+  const ignoreWordsFile = config.get<string | undefined>(
+    "check.spell.ignoreWordsFile",
+  );
+  const ignoreWords = ignoreWordsFile
+    ? await loadIgnoreWordsFile(ignoreWordsFile, config.getCwd())
+    : [];
+
   return {
     contentDir,
     rootContentDir,
@@ -200,11 +208,38 @@ export function getCheckConfig(
     lint: {
       ignoreRules: config.get<string[]>("check.lint.ignoreRules"),
     },
+    spell: {
+      ignoreWords,
+      skipDirectives: config.get<string[]>("check.spell.skipDirectives"),
+      locale: locale ?? config.get<string>("language"),
+    },
     staticPrefix: config.get<string | undefined>("staticPrefix"),
     staticDir: getStaticDir(config),
     minSeverity: config.get<CheckSeverity>("check.minSeverity"),
     categories: config.get<CheckCategory[]>("check.categories"),
   };
+}
+
+/**
+ * Loads ignore words from a file, one word per line.
+ *
+ * @param filePath - Path to the ignore words file
+ * @param cwd - Current working directory for resolving relative paths
+ * @returns Array of words to ignore
+ */
+export async function loadIgnoreWordsFile(
+  filePath: string,
+  cwd: string,
+): Promise<string[]> {
+  const resolvedPath = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(path.join(cwd, filePath));
+
+  const content = await fs.promises.readFile(resolvedPath, "utf8");
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
 }
 
 export function getCommonAiOptions(config: ConfigManager, logger: LogWriter) {

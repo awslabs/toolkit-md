@@ -56,6 +56,7 @@ describe("checkAll", () => {
       contentDir: tempDir,
       links: { timeout: 5000, skipExternal: true, ignorePatterns: [] },
       lint: { ignoreRules: [] },
+      spell: { ignoreWords: [], skipDirectives: [], locale: "en" },
     };
   });
 

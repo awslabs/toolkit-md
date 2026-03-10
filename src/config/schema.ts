@@ -228,6 +228,25 @@ export const CONFIG_CHECK_LINT_IGNORE_RULES = z
   )
   .meta({ cli: "ignoreRule", envPrefix: "TKMD_CHECK_LINT_IGNORE_RULE" });
 
+export const CONFIG_CHECK_SPELL_IGNORE_WORDS_FILE = z
+  .string()
+  .optional()
+  .describe(
+    "Path to a file containing words to ignore during spell checking, one word per line",
+  )
+  .meta({ cli: "ignoreWordsFile", env: "TKMD_CHECK_SPELL_IGNORE_WORDS_FILE" });
+
+export const CONFIG_CHECK_SPELL_SKIP_DIRECTIVES = z
+  .array(z.string())
+  .default([])
+  .describe(
+    "Directive names whose content should be skipped during spell checking (e.g. video, tabs)",
+  )
+  .meta({
+    cli: "skipDirective",
+    envPrefix: "TKMD_CHECK_SPELL_SKIP_DIRECTIVE",
+  });
+
 export const CONFIG_CHECK_MIN_SEVERITY = z
   .enum(["error", "warning"])
   .default("warning")
@@ -235,7 +254,7 @@ export const CONFIG_CHECK_MIN_SEVERITY = z
   .meta({ cli: "minSeverity", env: "TKMD_CHECK_MIN_SEVERITY" });
 
 export const CONFIG_CHECK_CATEGORIES = z
-  .array(z.enum(["lint", "link", "image"]))
+  .array(z.enum(["lint", "link", "image", "spell"]))
   .default(["lint", "link", "image"])
   .describe("Check categories to run")
   .meta({ cli: "category", envPrefix: "TKMD_CHECK_CATEGORY" });
@@ -300,6 +319,10 @@ export const configSchema = z.object({
     }),
     lint: z.object({
       ignoreRules: CONFIG_CHECK_LINT_IGNORE_RULES,
+    }),
+    spell: z.object({
+      ignoreWordsFile: CONFIG_CHECK_SPELL_IGNORE_WORDS_FILE,
+      skipDirectives: CONFIG_CHECK_SPELL_SKIP_DIRECTIVES,
     }),
   }),
 });

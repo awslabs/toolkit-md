@@ -26,11 +26,16 @@ import type { ContentTree } from "../content/tree/ContentTree.js";
 
 export type CheckSeverity = "error" | "warning";
 
-export type CheckCategory = "lint" | "link" | "image";
+export type CheckCategory = "lint" | "link" | "image" | "spell";
 
 export const CHECK_SEVERITIES: CheckSeverity[] = ["error", "warning"];
 
-export const CHECK_CATEGORIES: CheckCategory[] = ["lint", "link", "image"];
+export const CHECK_CATEGORIES: CheckCategory[] = [
+  "lint",
+  "link",
+  "image",
+  "spell",
+];
 
 export interface CheckIssue {
   file: string;
@@ -53,6 +58,11 @@ export interface CheckOptions {
   };
   lint: {
     ignoreRules: string[];
+  };
+  spell: {
+    ignoreWords: string[];
+    skipDirectives: string[];
+    locale: string;
   };
   staticPrefix?: string;
   staticDir?: string;

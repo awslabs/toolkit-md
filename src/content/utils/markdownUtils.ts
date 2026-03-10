@@ -33,6 +33,7 @@ import type {
   ImageReference,
   LinkReference,
 } from "../tree/ContentNode.js";
+import remarkCodeDirective from "./remarkCodeDirective.js";
 
 /**
  * Parsed markdown content with extracted metadata.
@@ -154,10 +155,17 @@ export function generateHash(text: string): string {
 export const TRANSLATION_SRC_HASH_KEY = "tmdTranslationSourceHash";
 export const LEGACY_TRANSLATION_SRC_HASH_KEY = "wsmSourceHash";
 
+export interface ProseSegment {
+  text: string;
+  line: number;
+  column: number;
+}
+
 export interface MarkdownElements {
   images: ImageReference[];
   links: LinkReference[];
   codeBlocks: CodeBlockReference[];
+  proseSegments: ProseSegment[];
   title: string | null;
 }
 
@@ -176,13 +184,34 @@ function extractTextFromChildren(children?: unknown[]): string {
     .join("");
 }
 
-export function extractMarkdownElements(content: string): MarkdownElements {
+export interface ExtractMarkdownOptions {
+  skipDirectives?: string[];
+}
+
+export function extractMarkdownElements(
+  content: string,
+  options?: ExtractMarkdownOptions,
+): MarkdownElements {
   const tree = unified().use(remarkParse).use(remarkDirective).parse(content);
+  const transform = remarkCodeDirective();
+  transform(tree);
+
   const seenImages = new Set<string>();
   const images: ImageReference[] = [];
   const links: LinkReference[] = [];
   const codeBlocks: CodeBlockReference[] = [];
+  const proseSegments: ProseSegment[] = [];
   let title: string | null = null;
+
+  const skipDirectiveNames = new Set(options?.skipDirectives ?? []);
+
+  const proseSkipTypes = new Set([
+    "code",
+    "inlineCode",
+    "html",
+    "yaml",
+    "toml",
+  ]);
 
   function visit(node: {
     type: string;
@@ -193,7 +222,7 @@ export function extractMarkdownElements(content: string): MarkdownElements {
     lang?: string;
     value?: string;
     attributes?: Record<string, string>;
-    position?: { start: { line: number } };
+    position?: { start: { line: number; column: number } };
     children?: unknown[];
   }): void {
     if (node.type === "heading" && node.depth === 1 && title === null) {
@@ -275,6 +304,29 @@ export function extractMarkdownElements(content: string): MarkdownElements {
       });
     }
 
+    if (node.type === "text" && node.value && node.position) {
+      proseSegments.push({
+        text: node.value,
+        line: node.position.start.line,
+        column: node.position.start.column,
+      });
+    }
+
+    if (proseSkipTypes.has(node.type)) {
+      return;
+    }
+
+    const isSkippedDirective =
+      (node.type === "leafDirective" ||
+        node.type === "textDirective" ||
+        node.type === "containerDirective") &&
+      node.name !== undefined &&
+      skipDirectiveNames.has(node.name);
+
+    if (isSkippedDirective) {
+      return;
+    }
+
     if (Array.isArray(node.children)) {
       for (const child of node.children) {
         visit(child as typeof node);
@@ -283,7 +335,7 @@ export function extractMarkdownElements(content: string): MarkdownElements {
   }
 
   visit(tree as unknown as Parameters<typeof visit>[0]);
-  return { images, links, codeBlocks, title };
+  return { images, links, codeBlocks, proseSegments, title };
 }
 function isRemoteUrl(url: string): boolean {
   return url.startsWith("http://") || url.startsWith("https://");

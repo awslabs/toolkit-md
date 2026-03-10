@@ -27,6 +27,7 @@ import type { ContentNode } from "../content/tree/ContentNode.js";
 import { checkImages } from "./imageChecker.js";
 import { checkLinks } from "./linkChecker.js";
 import { checkLint } from "./lintChecker.js";
+import { checkSpelling } from "./spellChecker.js";
 import type {
   CheckCategory,
   CheckOptions,
@@ -103,6 +104,15 @@ export async function checkNode(
           options.links.skipExternal,
           options.staticPrefix,
           options.staticDir,
+        )
+      : [],
+    isCategoryEnabled("spell", options.categories)
+      ? checkSpelling(
+          node.filePath,
+          node.content,
+          options.spell.ignoreWords,
+          options.spell.skipDirectives,
+          options.spell.locale,
         )
       : [],
   ]);
