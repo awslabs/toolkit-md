@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.2](https://github.com/awslabs/toolkit-md/compare/v0.2.1...v0.2.2) (2026-03-10)
+
+
+### Features
+
+* Extend checks to support basic spelling checks ([#47](https://github.com/awslabs/toolkit-md/issues/47)) ([0800748](https://github.com/awslabs/toolkit-md/commit/080074830799d035f22408c5abf7b94d1bfb9bfe))
+
+
+### Bug Fixes
+
+* Refactor config handler using zod4 ([#45](https://github.com/awslabs/toolkit-md/issues/45)) ([8e9b1c3](https://github.com/awslabs/toolkit-md/commit/8e9b1c38f33128f3a3ddb0aecaf5f00c4a994911))
+
 ## [0.2.1](https://github.com/awslabs/toolkit-md/compare/v0.2.0...v0.2.1) (2026-03-08)
 
 
