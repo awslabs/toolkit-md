@@ -252,9 +252,11 @@ export class ContentTree {
       parentNode.children.push(contentNode);
       this.sortChildren(parentNode);
 
-      // If this is an index file, update the parent's weight
       if (fileInfo.isIndexFile && parsed.weight < parentNode.weight) {
         parentNode.weight = parsed.weight;
+        if (parentNode.parent) {
+          this.sortChildren(parentNode.parent);
+        }
       }
     }
 

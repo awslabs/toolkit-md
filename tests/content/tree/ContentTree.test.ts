@@ -421,6 +421,38 @@ Some text
     expect(treeMap).not.toContain("└── ./");
   });
 
+  test("should re-sort parent when index file updates directory weight", () => {
+    const provider = new MockProvider();
+    const tree = new ContentTree(provider);
+
+    tree.add(
+      "/200-inference/index.en.md",
+      "---\nweight: 200\n---\n# Inference",
+    );
+    tree.add(
+      "/200-inference/300-vllm/index.en.md",
+      "---\nweight: 300\n---\n# vLLM",
+    );
+    tree.add(
+      "/200-inference/05-cleanup.md",
+      "---\nweight: 600\n---\n# Cleanup",
+    );
+    tree.add(
+      "/200-inference/500-observability/index.en.md",
+      "---\nweight: 500\n---\n# Observability",
+    );
+
+    const inferenceNode = tree.getNode("/200-inference");
+    const children = inferenceNode?.children || [];
+    const names = children.map((c) => c.name);
+
+    // Expected order by weight: index (-1), 300-vllm (300), 500-observability (500), 05-cleanup (600)
+    expect(names[0]).toBe("index");
+    expect(names[1]).toBe("300-vllm");
+    expect(names[2]).toBe("500-observability");
+    expect(names[3]).toBe("05-cleanup");
+  });
+
   describe("resolveLink", () => {
     test("should resolve relative link to sibling file", () => {
       const provider = new MockProvider();
