@@ -50,7 +50,7 @@
     "remark-preset-lint-recommended": "^7.0.1",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
-    "yaml": "^2.8.0",
+    "yaml": "^2.8.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
