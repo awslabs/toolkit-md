@@ -163,7 +163,7 @@ Toolkit for Markdown supports configuration through:
 | `language`                      | `--language`         | `TKMD_LANGUAGE`                        | Source language code                                                                         | `"en"`                                               |
 | `defaultLanguage`               | `--default-language` | `TKMD_DEFAULT_LANGUAGE`                | Language for files without explicit markers                                                  | `"en"`                                               |
 | `ai.model`                      | `--model`            | `TKMD_AI_MODEL`                        | Amazon Bedrock model ID                                                                      | `"global.anthropic.claude-sonnet-4-5-20250929-v1:0"` |
-| `ai.maxTokens`                  | `--max-tokens`       | `TKMD_AI_MAX_TOKENS`                   | Maximum output tokens                                                                        | `4096`                                               |
+| `ai.maxTokens`                  | `--max-tokens`       | `TKMD_AI_MAX_TOKENS`                   | Maximum output tokens                                                                        | `32000`                                              |
 | `ai.write`                      | `--write`            | `TKMD_AI_WRITE`                        | Write changes directly to files                                                              | `false`                                              |
 | `ai.rate.requests`              | `--request-rate`     | `TKMD_AI_REQUEST_RATE_LIMIT`           | Max requests per minute (0 = unlimited)                                                      | `0`                                                  |
 | `ai.rate.tokens`                | `--token-rate`       | `TKMD_AI_TOKEN_RATE_LIMIT`             | Max tokens per minute (0 = unlimited)                                                        | `0`                                                  |
@@ -206,7 +206,7 @@ Create a `.toolkit-mdrc` file in JSON format:
   "defaultLanguage": "en",
   "ai": {
     "model": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "maxTokens": 4096,
+    "maxTokens": 32000,
     "write": false,
     "rate": {
       "requests": 10,

@@ -119,7 +119,7 @@ describe("ZodConfigManager", () => {
       expect(configManager.get("ai.model")).toBe(
         "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
       );
-      expect(configManager.get("ai.maxTokens")).toBe(4096);
+      expect(configManager.get("ai.maxTokens")).toBe(32000);
       expect(configManager.getConfigFilePath()).toBeNull();
     });
 

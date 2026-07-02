@@ -41,7 +41,7 @@ import {
 import * as utils from "./utils.js";
 
 export const DEFAULT_MODEL = "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
-export const DEFAULT_MAX_TOKENS = "4096";
+export const DEFAULT_MAX_TOKENS = "32000";
 
 export function commonOptions(command: Command) {
   command.option(
