@@ -45,19 +45,6 @@ describe("summaryPrompt", () => {
       expect(result.outputSchema?.schema).toBeDefined();
     });
 
-    it("should not include prefill", () => {
-      const diffs: FileDiff[] = [
-        {
-          path: "docs/guide.md",
-          diff: "some diff",
-        },
-      ];
-
-      const result = buildSummarizePrompt(diffs);
-
-      expect(result.prefill).toBeUndefined();
-    });
-
     it("should handle multiple diffs", () => {
       const diffs: FileDiff[] = [
         {

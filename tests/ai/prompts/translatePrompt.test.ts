@@ -62,7 +62,6 @@ describe("buildTranslatePrompt", () => {
     expect(result.prompt).toContain("ALWAYS return the entire translated file");
     expect(result.prompt).not.toContain("existingTranslation");
     expect(result.sampleOutput).toBe("# Test Content\nThis is test content.");
-    expect(result.prefill).toBe('<file path="/content/test.md">');
   });
 
   test("should include existing translation when provided", () => {
@@ -246,7 +245,7 @@ Ceci est du contenu de test.</file>`;
 Ceci est du contenu de test.`);
   });
 
-  test("should throw error when transform receives wrong file path", () => {
+  test("should return content regardless of the file path in output", () => {
     const tree = createMockTree("en");
     const currentNode = tree.forceAdd(
       "/content/test.md",
@@ -264,12 +263,11 @@ Ceci est du contenu de test.`);
       [],
     );
 
-    const mockInputWithWrongPath = `<file path="/wrong/path.md">Content</file>`;
+    const mockInputWithTargetPath = `<file path="/content/test.es.md">Contenido</file>`;
 
     // biome-ignore lint/style/noNonNullAssertion: Will be defined
-    expect(() => result.transform!(mockInputWithWrongPath)).toThrow(
-      "Unexpected file path in output: /wrong/path.md",
-    );
+    const transformedOutput = result.transform!(mockInputWithTargetPath);
+    expect(transformedOutput).toBe("Contenido");
   });
 
   test("should handle different language combinations", () => {
@@ -337,7 +335,6 @@ bash command example
 
     expect(result.sampleOutput).toBe(complexContent);
     expect(result.prompt).toContain("5fd2e593a354710152429d6194589eff");
-    expect(result.prefill).toBe('<file path="/content/complex.md">');
   });
 
   test("should handle empty style guides and exemplars", () => {

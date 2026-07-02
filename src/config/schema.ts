@@ -58,7 +58,7 @@ export const CONFIG_MAX_TOKENS = z
     z.number().positive("Max tokens must be greater than 0"),
     z.string().transform((val) => parseInt(val, 10)),
   ])
-  .default(4096)
+  .default(32000)
   .describe("Maximum tokens to be output by the model")
   .meta({ cli: "maxTokens", env: "TKMD_AI_MAX_TOKENS" });
 

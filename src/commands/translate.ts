@@ -148,7 +148,6 @@ async function executeAction(
     maxTokens,
     requestRate,
     tokenRate,
-    5,
   );
 
   const targetTree = await utils.buildContentTree(

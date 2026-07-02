@@ -17,9 +17,8 @@ const bedrockClientMock = mockClient(BedrockRuntimeClient);
 const createDefaultClient = (
   modelId = "anthropic.claude-3-sonnet-20240229-v1:0",
   maxTokens = 1000,
-  maxIterations = 3,
 ) => {
-  return new DefaultBedrockClient(modelId, maxTokens, 0, 0, maxIterations);
+  return new DefaultBedrockClient(modelId, maxTokens, 0, 0);
 };
 
 const createMockResponse = (
@@ -105,6 +104,33 @@ describe("DefaultBedrockClient", () => {
       ]);
     });
 
+    it("should strip the inference profile prefix for token counting", async () => {
+      const client = createDefaultClient("global.anthropic.claude-sonnet-4-6");
+      const prompt: Prompt = {
+        prompt: "Tell me a joke",
+      };
+
+      bedrockClientMock
+        .on(ConverseCommand)
+        .resolves(createMockResponse("A joke."));
+
+      await client.generate(prompt);
+
+      const countTokensCalls =
+        bedrockClientMock.commandCalls(CountTokensCommand);
+      expect(countTokensCalls.length).toBe(1);
+      expect(countTokensCalls[0].args[0].input.modelId).toBe(
+        "anthropic.claude-sonnet-4-6",
+      );
+
+      expectCommandCall(0, "global.anthropic.claude-sonnet-4-6", 1000, [
+        {
+          role: "user" as ConversationRole,
+          content: [{ text: "Tell me a joke" }],
+        },
+      ]);
+    });
+
     it("should generate a response without context", async () => {
       const client = createDefaultClient();
       const prompt: Prompt = {
@@ -126,40 +152,6 @@ describe("DefaultBedrockClient", () => {
         {
           role: "user" as ConversationRole,
           content: [{ text: "What is 2+2?" }],
-        },
-      ]);
-    });
-
-    it("should generate a response with prefill", async () => {
-      const client = createDefaultClient();
-      const prompt: Prompt = {
-        prompt: "Complete this sentence",
-        context: "You are a helpful assistant",
-        prefill: "The weather today is",
-      };
-
-      const responseText = " sunny and warm.";
-      const usage = { inputTokens: 12, outputTokens: 8, totalTokens: 20 };
-      const mockResponse = createMockResponse(responseText, "end_turn", usage);
-      bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
-
-      const result = await client.generate(prompt);
-
-      expect(result.output).toBe("The weather today is sunny and warm.");
-      expectUsageStructure(result.usage, usage);
-
-      expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
-      expectCommandCall(0, "anthropic.claude-3-sonnet-20240229-v1:0", 1000, [
-        {
-          role: "user" as ConversationRole,
-          content: [
-            { text: "You are a helpful assistant" },
-            { text: "Complete this sentence" },
-          ],
-        },
-        {
-          role: "assistant" as ConversationRole,
-          content: [{ text: "The weather today is" }],
         },
       ]);
     });
@@ -279,130 +271,25 @@ describe("DefaultBedrockClient", () => {
       ]);
     });
 
-    it("should handle max_tokens stop reason and continue generation", async () => {
-      const modelId = "anthropic.claude-3-sonnet-20240229-v1:0";
-      const maxTokens = 1000;
-      const requestRate = 0;
-      const tokenRate = 0;
-      const maxIterations = 3;
-
-      const client = new DefaultBedrockClient(
-        modelId,
-        maxTokens,
-        requestRate,
-        tokenRate,
-        maxIterations,
-      );
-
+    it("should throw error when max_tokens stop reason is reached", async () => {
+      const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "Write a long story",
         context: "You are a storyteller",
       };
 
-      const firstResponse = {
-        output: {
-          message: {
-            content: [
-              { text: "Once upon a time, there was a brave knight who" },
-            ],
-            role: "assistant" as ConversationRole,
-          },
-        },
-        stopReason: "max_tokens" as StopReason,
-        usage: {
-          inputTokens: 10,
-          outputTokens: 15,
-          totalTokens: 25,
-        },
-        $metadata: { httpStatusCode: 200 },
-      };
-
-      const secondResponse = {
-        output: {
-          message: {
-            content: [{ text: " saved the kingdom." }],
-            role: "assistant" as ConversationRole,
-          },
-        },
-        stopReason: "end_turn" as StopReason,
-        usage: {
-          inputTokens: 20,
-          outputTokens: 8,
-          totalTokens: 28,
-        },
-        $metadata: { httpStatusCode: 200 },
-      };
-
-      bedrockClientMock
-        .on(ConverseCommand)
-        .resolvesOnce(firstResponse)
-        .resolvesOnce(secondResponse);
-
-      const result = await client.generate(prompt);
-
-      expect(result).toEqual({
-        output:
-          "Once upon a time, there was a brave knight who saved the kingdom.",
-        usage: {
-          inputTokens: 30,
-          outputTokens: 23,
-          totalTokens: 53,
-          estimatedTokens: expect.any(Number),
-          cacheReadInputTokens: 0,
-          cacheWriteInputTokens: 0,
-        },
-      });
-
-      const commandCalls = bedrockClientMock.commandCalls(ConverseCommand);
-      expect(commandCalls.length).toBe(2);
-
-      const firstCommand = commandCalls[0].args[0].input;
-      expect(firstCommand.messages).toEqual([
-        {
-          role: "user" as ConversationRole,
-          content: [
-            { text: "You are a storyteller" },
-            { text: "Write a long story" },
-          ],
-        },
-      ]);
-
-      const secondCommand = commandCalls[1].args[0].input;
-      expect(secondCommand.messages).toEqual([
-        {
-          role: "user" as ConversationRole,
-          content: [
-            { text: "You are a storyteller" },
-            { text: "Write a long story" },
-          ],
-        },
-        {
-          role: "assistant" as ConversationRole,
-          content: [{ text: "Once upon a time, there was a brave knight who" }],
-        },
-      ]);
-    });
-
-    it("should throw error when maximum iterations exceeded", async () => {
-      const maxIterations = 2;
-      const client = createDefaultClient(undefined, 1000, maxIterations);
-      const prompt: Prompt = {
-        prompt: "Write a very long story",
-        context: "You are a storyteller",
-      };
-
       const maxTokensResponse = createMockResponse(
-        "Part of the story...",
+        "Once upon a time, there was a brave knight who",
         "max_tokens",
       );
       bedrockClientMock.on(ConverseCommand).resolves(maxTokensResponse);
 
       await expect(client.generate(prompt)).rejects.toThrow(
-        "Maximum iterations breached",
+        "Response was truncated because the maximum token limit was reached",
       );
 
       const commandCalls = bedrockClientMock.commandCalls(ConverseCommand);
-      expect(commandCalls.length).toBe(maxIterations + 1);
+      expect(commandCalls.length).toBe(1);
     });
 
     it("should throw error for unexpected stop reason", async () => {
@@ -481,6 +368,15 @@ describe("DefaultBedrockClient", () => {
           ],
         },
       ]);
+
+      const countTokensCalls =
+        bedrockClientMock.commandCalls(CountTokensCommand);
+      const countedMessages =
+        countTokensCalls[0].args[0].input.input?.converse?.messages ?? [];
+      expect(countedMessages[countedMessages.length - 1]).toEqual({
+        role: "user" as ConversationRole,
+        content: [{ text: "Hello, how can I help you today?" }],
+      });
     });
 
     it("should pass outputConfig when prompt has outputSchema", async () => {

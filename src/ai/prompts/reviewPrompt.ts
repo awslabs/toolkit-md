@@ -101,15 +101,8 @@ export async function buildReviewPrompt(
       checkIssues: checkIssues && checkIssues.length > 0 ? checkIssues : null,
     }),
     sampleOutput: currentNode.content || undefined,
-    prefill: `<file path="${currentNode.filePath}">`,
     transform: (input) => {
-      const fileSection = extractFileSection(input);
-
-      if (fileSection.path !== currentNode.filePath) {
-        throw new Error(`Unexpected file path in output: ${fileSection.path}`);
-      }
-
-      return fileSection.content;
+      return extractFileSection(input).content;
     },
   };
 

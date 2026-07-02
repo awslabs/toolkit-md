@@ -36,12 +36,27 @@ import { TokenUsageCounter } from "./utils.js";
 const USER_AGENT = process.env.TKMD_AI_USER_AGENT || "toolkit-md";
 
 /**
+ * Converts a Bedrock model identifier to its underlying foundation model ID by
+ * stripping any cross-region inference profile prefix (e.g. "global.", "us.",
+ * "eu.", "apac.").
+ *
+ * The CountTokens operation only accepts foundation model IDs and rejects
+ * inference profile IDs, whereas Converse requires the profile form. This lets
+ * a single configured model ID drive both calls.
+ *
+ * @param modelId - The configured model identifier, which may be an inference profile ID
+ * @returns The foundation model ID with any geographic profile prefix removed
+ */
+function toFoundationModelId(modelId: string): string {
+  return modelId.replace(/^(global|us|eu|apac)\./, "");
+}
+
+/**
  * Default implementation of the BedrockClient interface that provides AI text generation
  * capabilities using AWS Bedrock Runtime service.
  *
  * This client supports:
  * - Rate limiting for both requests and tokens
- * - Multi-iteration generation for handling max token limits
  * - Prompt caching for supported models
  * - Response transformation
  * - Token usage tracking
@@ -53,7 +68,6 @@ const USER_AGENT = process.env.TKMD_AI_USER_AGENT || "toolkit-md";
  *   1000, // maxTokens
  *   10,   // requestRate per minute
  *   1000, // tokenRate per minute
- *   3     // maxIterations
  * );
  *
  * const response = await client.generate({
@@ -79,14 +93,12 @@ export class DefaultBedrockClient implements BedrockClient {
    * @param maxTokens - Maximum number of tokens to generate in a single request
    * @param requestRate - Maximum number of requests per minute (0 = no limit)
    * @param tokenRate - Maximum number of tokens per minute (0 = no limit)
-   * @param maxIterations - Maximum number of iterations for handling max token responses
    */
   public constructor(
     private readonly modelId: string,
     private readonly maxTokens: number,
     requestRate: number,
     tokenRate: number,
-    private readonly maxIterations: number,
   ) {
     this.client = new BedrockRuntimeClient({
       customUserAgent: USER_AGENT,
@@ -110,7 +122,6 @@ export class DefaultBedrockClient implements BedrockClient {
    *
    * This method handles the complete generation workflow including:
    * - Rate limiting enforcement
-   * - Multi-iteration generation for responses that exceed max tokens
    * - Prompt caching when enabled and supported
    * - Response transformation if specified in the prompt
    * - Comprehensive token usage tracking
@@ -119,7 +130,7 @@ export class DefaultBedrockClient implements BedrockClient {
    * @param cacheEnabled - Whether to enable prompt caching for supported models (default: false)
    * @returns Promise resolving to the generated response with usage statistics
    *
-   * @throws {Error} When maximum iterations are exceeded
+   * @throws {Error} When the response is truncated because the max token limit was reached
    * @throws {Error} When an unexpected stop reason is encountered
    *
    * @example
@@ -151,121 +162,103 @@ export class DefaultBedrockClient implements BedrockClient {
 
     const promptText = prompt.prompt;
     const promptContext = prompt.context;
-    let prefill = prompt.prefill ?? "";
 
-    let iterations = 0;
+    const conversation = [
+      {
+        role: "user" as ConversationRole,
+        content: [
+          ...(promptContext ? [{ text: promptContext }] : []),
 
-    while (true) {
-      if (iterations > this.maxIterations) {
-        throw new Error("Maximum iterations breached");
-      }
-
-      const conversation = [
-        {
-          role: "user" as ConversationRole,
-          content: [
-            ...(promptContext ? [{ text: promptContext }] : []),
-
-            ...(cacheEnabled
-              ? [
-                  {
-                    cachePoint: {
-                      type: "default" as CachePointType,
-                    },
+          ...(cacheEnabled
+            ? [
+                {
+                  cachePoint: {
+                    type: "default" as CachePointType,
                   },
-                ]
-              : []),
-            {
-              text: promptText,
-            },
-            ...(prompt.images || []).map((img) => ({
-              image: {
-                format: img.format as ImageFormat,
-                source: { bytes: img.bytes },
-              },
-            })),
-          ],
-        },
-        ...(prefill
-          ? [
-              {
-                role: "assistant" as ConversationRole,
-                content: [{ text: prefill }],
-              },
-            ]
-          : []),
-      ];
-
-      const estimatedTokens = await this.estimateTokens(
-        conversation,
-        prompt.sampleOutput,
-      );
-
-      tokenUsageCounter.addEstimated(estimatedTokens);
-
-      const command = new ConverseCommand({
-        modelId: this.modelId,
-        messages: conversation,
-        inferenceConfig: { maxTokens: this.maxTokens },
-        ...(prompt.outputSchema && {
-          outputConfig: {
-            textFormat: {
-              type: "json_schema",
-              structure: {
-                jsonSchema: {
-                  schema: JSON.stringify(
-                    z.toJSONSchema(prompt.outputSchema.schema),
-                  ),
-                  name: prompt.outputSchema.name,
-                  description: prompt.outputSchema.description,
                 },
+              ]
+            : []),
+          {
+            text: promptText,
+          },
+          ...(prompt.images || []).map((img) => ({
+            image: {
+              format: img.format as ImageFormat,
+              source: { bytes: img.bytes },
+            },
+          })),
+        ],
+      },
+    ];
+
+    const estimatedTokens = await this.estimateTokens(
+      conversation,
+      prompt.sampleOutput,
+    );
+
+    tokenUsageCounter.addEstimated(estimatedTokens);
+
+    const command = new ConverseCommand({
+      modelId: this.modelId,
+      messages: conversation,
+      inferenceConfig: { maxTokens: this.maxTokens },
+      ...(prompt.outputSchema && {
+        outputConfig: {
+          textFormat: {
+            type: "json_schema",
+            structure: {
+              jsonSchema: {
+                schema: JSON.stringify(
+                  z.toJSONSchema(prompt.outputSchema.schema),
+                ),
+                name: prompt.outputSchema.name,
+                description: prompt.outputSchema.description,
               },
             },
           },
-        }),
-      });
+        },
+      }),
+    });
 
-      await Promise.all([
-        this.requestRateLimiter.waitAndConsume(1),
-        this.tokenRateLimiter.wait(estimatedTokens),
-      ]);
+    await Promise.all([
+      this.requestRateLimiter.waitAndConsume(1),
+      this.tokenRateLimiter.wait(estimatedTokens),
+    ]);
 
-      const timestamp = Date.now();
+    const timestamp = Date.now();
 
-      const responseObject = await this.client.send(command);
+    const responseObject = await this.client.send(command);
 
-      // biome-ignore lint/style/noNonNullAssertion: Need to see if this needs better checks
-      let response = prefill + responseObject.output!.message!.content![0].text;
+    // biome-ignore lint/style/noNonNullAssertion: Need to see if this needs better checks
+    let response = responseObject.output!.message!.content![0].text ?? "";
 
-      this.tokenRateLimiter.consume(
-        responseObject.usage?.totalTokens || 0,
-        timestamp,
-      );
+    this.tokenRateLimiter.consume(
+      responseObject.usage?.totalTokens || 0,
+      timestamp,
+    );
 
-      if (responseObject.usage) {
-        tokenUsageCounter.addUsage(responseObject.usage);
-      }
-
-      if (responseObject.stopReason === "max_tokens") {
-        prefill = response.trimEnd();
-        iterations++;
-
-        continue;
-      }
-
-      if (responseObject.stopReason !== "end_turn") {
-        throw new Error(`Unexpected stop reason: ${responseObject.stopReason}`);
-      }
-
-      if (prompt.transform) {
-        response = prompt.transform(response);
-      }
-
-      return {
-        output: response,
-        usage: tokenUsageCounter.get(),
-      };
+    if (responseObject.usage) {
+      tokenUsageCounter.addUsage(responseObject.usage);
     }
+
+    if (responseObject.stopReason === "max_tokens") {
+      throw new Error(
+        "Response was truncated because the maximum token limit was reached. Increase ai.maxTokens and try again.",
+      );
+    }
+
+    if (responseObject.stopReason !== "end_turn") {
+      throw new Error(`Unexpected stop reason: ${responseObject.stopReason}`);
+    }
+
+    if (prompt.transform) {
+      response = prompt.transform(response);
+    }
+
+    return {
+      output: response,
+      usage: tokenUsageCounter.get(),
+    };
   }
 
   private async estimateTokens(
@@ -275,21 +268,14 @@ export class DefaultBedrockClient implements BedrockClient {
     const finalMessages = [...messages];
 
     if (sampleOutput) {
-      if (messages[messages.length - 1].role === "assistant") {
-        finalMessages.push({
-          role: "user",
-          content: [{ text: "-" }],
-        });
-      }
-
       finalMessages.push({
-        role: "assistant",
+        role: "user",
         content: [{ text: sampleOutput.trim() }],
       });
     }
 
     const command = new CountTokensCommand({
-      modelId: "anthropic.claude-sonnet-4-20250514-v1:0",
+      modelId: toFoundationModelId(this.modelId),
       input: {
         converse: { messages: finalMessages },
       },

@@ -191,7 +191,6 @@ async function executeAction(
     maxTokens,
     requestRate,
     tokenRate,
-    5,
   );
 
   const reviewCheck = config.get<boolean>("ai.review.runChecks");

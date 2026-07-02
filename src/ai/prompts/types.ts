@@ -36,12 +36,6 @@ export interface Prompt {
   prompt: string;
 
   /**
-   * Optional text to pre-fill the model's response.
-   * This can be used to guide the model's output format or to continue from a previous response.
-   */
-  prefill?: string;
-
-  /**
    * Optional example of expected output.
    * This can be used for token estimation and to guide the model's response format.
    */
