@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/awslabs/toolkit-md/compare/v0.2.2...v0.3.0) (2026-07-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* removed support for Claude Sonnet 3.7, Sonnet 4, Opus 4, and Opus 4.1
+
+### Features
+
+* add Claude Sonnet 4.6/5 and Opus 4.6/4.7 support ([bf7e00c](https://github.com/awslabs/toolkit-md/commit/bf7e00cba132b8631c0e6809c00a291562ac504a))
+* Add/remove supported models ([bb6cafd](https://github.com/awslabs/toolkit-md/commit/bb6cafd5df413eb30b32831f94196c62c18e6a25))
+
 ## [0.2.2](https://github.com/awslabs/toolkit-md/compare/v0.2.1...v0.2.2) (2026-03-27)
 
 
