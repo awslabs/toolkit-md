@@ -51,6 +51,15 @@ function toFoundationModelId(modelId: string): string {
   return modelId.replace(/^(global|us|eu|apac)\./, "");
 }
 
+const TOKEN_COUNT_FALLBACKS: Record<string, string> = {
+  "anthropic.claude-sonnet-5": "anthropic.claude-sonnet-4-6",
+};
+
+function toTokenCountModelId(modelId: string): string {
+  const foundationId = toFoundationModelId(modelId);
+  return TOKEN_COUNT_FALLBACKS[foundationId] ?? foundationId;
+}
+
 /**
  * Default implementation of the BedrockClient interface that provides AI text generation
  * capabilities using AWS Bedrock Runtime service.
@@ -275,7 +284,7 @@ export class DefaultBedrockClient implements BedrockClient {
     }
 
     const command = new CountTokensCommand({
-      modelId: toFoundationModelId(this.modelId),
+      modelId: toTokenCountModelId(this.modelId),
       input: {
         converse: { messages: finalMessages },
       },

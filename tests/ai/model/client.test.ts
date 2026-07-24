@@ -131,6 +131,60 @@ describe("DefaultBedrockClient", () => {
       ]);
     });
 
+    it("should use fallback model for token counting when model does not support it", async () => {
+      const client = createDefaultClient("anthropic.claude-sonnet-5");
+      const prompt: Prompt = {
+        prompt: "Tell me a joke",
+      };
+
+      bedrockClientMock
+        .on(ConverseCommand)
+        .resolves(createMockResponse("A joke."));
+
+      await client.generate(prompt);
+
+      const countTokensCalls =
+        bedrockClientMock.commandCalls(CountTokensCommand);
+      expect(countTokensCalls.length).toBe(1);
+      expect(countTokensCalls[0].args[0].input.modelId).toBe(
+        "anthropic.claude-sonnet-4-6",
+      );
+
+      expectCommandCall(0, "anthropic.claude-sonnet-5", 1000, [
+        {
+          role: "user" as ConversationRole,
+          content: [{ text: "Tell me a joke" }],
+        },
+      ]);
+    });
+
+    it("should use fallback model for token counting with inference profile prefix", async () => {
+      const client = createDefaultClient("global.anthropic.claude-sonnet-5");
+      const prompt: Prompt = {
+        prompt: "Tell me a joke",
+      };
+
+      bedrockClientMock
+        .on(ConverseCommand)
+        .resolves(createMockResponse("A joke."));
+
+      await client.generate(prompt);
+
+      const countTokensCalls =
+        bedrockClientMock.commandCalls(CountTokensCommand);
+      expect(countTokensCalls.length).toBe(1);
+      expect(countTokensCalls[0].args[0].input.modelId).toBe(
+        "anthropic.claude-sonnet-4-6",
+      );
+
+      expectCommandCall(0, "global.anthropic.claude-sonnet-5", 1000, [
+        {
+          role: "user" as ConversationRole,
+          content: [{ text: "Tell me a joke" }],
+        },
+      ]);
+    });
+
     it("should generate a response without context", async () => {
       const client = createDefaultClient();
       const prompt: Prompt = {
