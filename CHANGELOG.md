@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/awslabs/toolkit-md/compare/v0.3.0...v0.3.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* Sonnet 5 does not currently support token counting ([4a4110b](https://github.com/awslabs/toolkit-md/commit/4a4110b93f52d56463e8be36af424e9d814b040a))
+
 ## [0.3.0](https://github.com/awslabs/toolkit-md/compare/v0.2.2...v0.3.0) (2026-07-02)
 
 
