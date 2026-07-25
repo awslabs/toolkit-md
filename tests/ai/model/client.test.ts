@@ -104,6 +104,70 @@ describe("DefaultBedrockClient", () => {
       ]);
     });
 
+    it("should extract text when it is not the first content block", async () => {
+      const client = createDefaultClient();
+      const prompt: Prompt = {
+        prompt: "Tell me a joke",
+      };
+
+      const responseText = "Why did the chicken cross the road?";
+      const mockResponse = {
+        output: {
+          message: {
+            content: [
+              {
+                reasoningContent: {
+                  reasoningText: { text: "", signature: "abc123" },
+                },
+              },
+              { text: responseText },
+            ],
+            role: "assistant" as ConversationRole,
+          },
+          $unknown: undefined,
+        },
+        stopReason: "end_turn" as StopReason,
+        usage: { inputTokens: 10, outputTokens: 15, totalTokens: 25 },
+        $metadata: { httpStatusCode: 200 },
+      };
+      bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
+
+      const result = await client.generate(prompt);
+
+      expect(result.output).toBe(responseText);
+    });
+
+    it("should return an empty string when no content block has text", async () => {
+      const client = createDefaultClient();
+      const prompt: Prompt = {
+        prompt: "Tell me a joke",
+      };
+
+      const mockResponse = {
+        output: {
+          message: {
+            content: [
+              {
+                reasoningContent: {
+                  reasoningText: { text: "", signature: "abc123" },
+                },
+              },
+            ],
+            role: "assistant" as ConversationRole,
+          },
+          $unknown: undefined,
+        },
+        stopReason: "end_turn" as StopReason,
+        usage: { inputTokens: 10, outputTokens: 15, totalTokens: 25 },
+        $metadata: { httpStatusCode: 200 },
+      };
+      bedrockClientMock.on(ConverseCommand).resolves(mockResponse);
+
+      const result = await client.generate(prompt);
+
+      expect(result.output).toBe("");
+    });
+
     it("should strip the inference profile prefix for token counting", async () => {
       const client = createDefaultClient("global.anthropic.claude-sonnet-4-6");
       const prompt: Prompt = {

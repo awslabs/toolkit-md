@@ -238,8 +238,10 @@ export class DefaultBedrockClient implements BedrockClient {
 
     const responseObject = await this.client.send(command);
 
-    // biome-ignore lint/style/noNonNullAssertion: Need to see if this needs better checks
-    let response = responseObject.output!.message!.content![0].text ?? "";
+    let response =
+      responseObject.output?.message?.content?.find(
+        (block) => block.text !== undefined,
+      )?.text ?? "";
 
     this.tokenRateLimiter.consume(
       responseObject.usage?.totalTokens || 0,
