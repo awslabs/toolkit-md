@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/awslabs/toolkit-md/compare/v0.3.1...v0.3.2) (2026-07-25)
+
+
+### Bug Fixes
+
+* Better bedrock response handling ([11d1912](https://github.com/awslabs/toolkit-md/commit/11d1912418a4d18615c0da76e83f37d1ba6a04b0))
+
 ## [0.3.1](https://github.com/awslabs/toolkit-md/compare/v0.3.0...v0.3.1) (2026-07-24)
 
 
