@@ -1,0 +1,31 @@
+{
+  "operation": "review",
+  "description": "Prose errors surrounding code blocks that must survive untouched",
+  "settings": {
+    "contextStrategy": "nothing"
+  },
+  "expectations": {
+    "shouldChange": ["debugging.md"],
+    "mustFix": [
+      {
+        "file": "debugging.md",
+        "pattern": "\\bdiagnoze\\b",
+        "replacedBy": "diagnose"
+      },
+      {
+        "file": "debugging.md",
+        "pattern": "\\bretreive\\b",
+        "replacedBy": "retrieve"
+      }
+    ],
+    "mustPreserve": [
+      { "file": "debugging.md", "pattern": "```bash[\\s\\S]*?```" },
+      { "file": "debugging.md", "pattern": "```yaml[\\s\\S]*?```" },
+      {
+        "file": "debugging.md",
+        "pattern": "kubectl get po --selector app\\.kubernetes\\.io/component=service"
+      }
+    ]
+  },
+  "rubric": "review-quality"
+}

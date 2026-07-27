@@ -14,259 +14,68 @@
  * limitations under the License.
  */
 
-import * as fs from "node:fs";
+/**
+ * @fileoverview CLI command plumbing shared across commands.
+ *
+ * Holds config-derived option accessors that log as they resolve, error
+ * handling and spinner wrappers, and re-exports of the option bridge and
+ * formatting helpers.
+ */
+
 import path from "node:path";
 import chalk from "chalk";
-import { type Command, Option } from "commander";
-import { diffWordsWithSpace } from "diff";
 import ora from "ora";
-import type z from "zod";
-import { ZodArray, ZodBoolean, ZodDefault, ZodOptional } from "zod";
-import type { ContextStrategy, Exemplar, TokenUsage } from "../ai/index.js";
-import type {
-  CheckCategory,
-  CheckOptions,
-  CheckSeverity,
-} from "../check/types.js";
-import type { ConfigManager } from "../config/index.js";
-import { ContentTree, FileSystemProvider } from "../content/index.js";
-import { Language } from "../languages/index.js";
-import { ConsoleLogger, type LogWriter } from "./logger.js";
+import type { Config } from "../config/index.js";
+import { ConsoleLogger, type LogWriter } from "../core/logger.js";
+import { buildPath } from "../core/workspace.js";
 
-export function collect(value: unknown, previous: unknown[]) {
-  return (previous ?? []).concat([value]);
-}
-
-export async function loadOptionalPath(
-  path: string | undefined,
-  baseDir: string | undefined,
-) {
-  if (!path) {
-    return "";
-  }
-
-  const resolvedPath = buildPath(path, baseDir);
-
-  return await fs.promises.readFile(resolvedPath, "utf8");
-}
-
-export function buildPath<T extends string | undefined>(
-  filepath: T,
-  contextPath?: string,
-): T {
-  if (!filepath) {
-    return undefined as T;
-  }
-
-  if (!path.isAbsolute(filepath) && contextPath) {
-    return path.join(contextPath, filepath) as T;
-  }
-
-  return filepath;
-}
-
-export function getContentDir(config: ConfigManager) {
-  const contentDir = config.get<string>("contentDir");
-
-  if (!contentDir) {
-    return undefined;
-  }
-
-  return path.resolve(path.join(config.getCwd(), contentDir));
-}
-
-export function getStaticDir(config: ConfigManager): string | undefined {
-  const staticDir = config.get<string | undefined>("staticDir");
-
-  if (!staticDir) {
-    return undefined;
-  }
-
-  if (path.isAbsolute(staticDir)) {
-    return staticDir;
-  }
-
-  return path.resolve(path.join(config.getCwd(), staticDir));
-}
-
-export function getContentDirWithTarget(config: ConfigManager, target: string) {
-  let contentDir = config.get<string>("contentDir");
-
-  if (!contentDir) {
-    contentDir = target;
-  } else {
-    contentDir = path.join(contentDir, target);
-  }
-
-  if (path.isAbsolute(contentDir)) {
-    return contentDir;
-  }
-
-  return path.resolve(path.join(config.getCwd(), contentDir));
-}
-
-export function getTranslationDir(config: ConfigManager, contentDir: string) {
-  let translationDir = config.get<string>("ai.translation.directory");
-  let overridden = true;
-
-  if (!translationDir) {
-    overridden = false;
-    translationDir = contentDir;
-  }
-
-  if (path.isAbsolute(translationDir)) {
-    return { translationDir, overridden };
-  }
-
-  return {
-    translationDir: path.resolve(path.join(config.getCwd(), translationDir)),
-    overridden,
-  };
-}
+export { buildPath };
+export * from "./format.js";
+export * from "./optionBridge.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Options not typed
 export function getCwd(options: any) {
   return options.cwd ? path.resolve(options.cwd) : process.cwd();
 }
 
-export function validatePathWithinCwd(targetPath: string, cwd: string): void {
-  const resolvedTarget = path.resolve(targetPath);
-  const resolvedCwd = path.resolve(cwd);
-  const relative = path.relative(resolvedCwd, resolvedTarget);
-
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error(
-      `Access denied: path '${targetPath}' is outside the working directory`,
-    );
-  }
-}
-
-export function printRelativePath(filepath: string, baseDir: string) {
-  return path.relative(baseDir, filepath);
-}
-
-export function displayDiff(originalContent: string, updatedContent: string) {
-  const diff = diffWordsWithSpace(originalContent, updatedContent);
-
-  diff.forEach((part) => {
-    let text = part.value;
-    const whitespace = text.trim().length === 0;
-
-    if (part.added) {
-      text = whitespace ? chalk.green.bgGreen(text) : chalk.green(text);
-    } else if (part.removed) {
-      text = whitespace
-        ? chalk.red.bgRed(text)
-        : chalk.red(chalk.strikethrough(text));
-    }
-    process.stderr.write(text);
-  });
-}
-
-export function getLanguages(config: ConfigManager): {
-  language: Language;
-  defaultLanguage: Language;
-} {
-  const language = Language.getLanguage(config.get<string>("language"));
-
-  if (!language) {
-    throw new Error("Language not set");
+/**
+ * Builds a debug message callback from CLI options.
+ *
+ * @param options - Parsed CLI options
+ * @returns A stderr-writing callback when --debug is set, otherwise undefined
+ */
+export function getDebugCallback(
+  // biome-ignore lint/suspicious/noExplicitAny: Options not typed
+  options: any,
+): ((message: string) => void) | undefined {
+  if (!options.debug) {
+    return undefined;
   }
 
-  const defaultLanguage = Language.getLanguage(
-    config.get<string>("defaultLanguage"),
-  );
-
-  if (!defaultLanguage) {
-    throw new Error("Default language not set");
-  }
-
-  return { language, defaultLanguage };
-}
-
-export async function getCheckConfig(
-  config: ConfigManager,
-  contentDir: string,
-  rootContentDir?: string,
-  locale?: string,
-): Promise<CheckOptions> {
-  const ignoreWordsFile = config.get<string | undefined>(
-    "check.spell.ignoreWordsFile",
-  );
-  const ignoreWords = ignoreWordsFile
-    ? await loadIgnoreWordsFile(ignoreWordsFile, config.getCwd())
-    : [];
-
-  return {
-    contentDir,
-    rootContentDir,
-    links: {
-      timeout: config.get<number>("check.links.timeout"),
-      skipExternal: config.get<boolean>("check.links.skipExternal"),
-      ignorePatterns: config.get<string[]>("check.links.ignorePatterns"),
-    },
-    lint: {
-      ignoreRules: config.get<string[]>("check.lint.ignoreRules"),
-    },
-    spell: {
-      ignoreWords,
-      skipDirectives: config.get<string[]>("check.spell.skipDirectives"),
-      locale: locale ?? config.get<string>("language"),
-    },
-    staticPrefix: config.get<string | undefined>("staticPrefix"),
-    staticDir: getStaticDir(config),
-    minSeverity: config.get<CheckSeverity>("check.minSeverity"),
-    categories: config.get<CheckCategory[]>("check.categories"),
+  return (message: string) => {
+    console.error(chalk.gray(`[debug] ${message}`));
   };
 }
 
-/**
- * Loads ignore words from a file, one word per line.
- *
- * @param filePath - Path to the ignore words file
- * @param cwd - Current working directory for resolving relative paths
- * @returns Array of words to ignore
- */
-export async function loadIgnoreWordsFile(
-  filePath: string,
-  cwd: string,
-): Promise<string[]> {
-  const resolvedPath = path.isAbsolute(filePath)
-    ? filePath
-    : path.resolve(path.join(cwd, filePath));
-
-  const content = await fs.promises.readFile(resolvedPath, "utf8");
-  return content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"));
-}
-
-export function getCommonAiOptions(config: ConfigManager, logger: LogWriter) {
-  const model = config.get<string>("ai.model");
+export function getCommonAiOptions(settings: Config, logger: LogWriter) {
+  const model = settings.ai.model;
 
   logger.message(`⭐ Using model ${model}`);
 
-  const maxTokens = config.get<number>("ai.maxTokens");
-
   return {
     model,
-    maxTokens,
+    maxTokens: settings.ai.maxTokens,
   };
 }
 
-export function getWriteOption(config: ConfigManager) {
-  return config.get<boolean>("ai.write");
-}
-
-export function getRateLimitOptions(config: ConfigManager, logger: LogWriter) {
-  const requestRate = config.get<number>("ai.rate.requests");
+export function getRateLimitOptions(settings: Config, logger: LogWriter) {
+  const requestRate = settings.ai.rate.requests;
 
   if (requestRate > 0) {
     logger.message(`⏳ Rate limiting to ${requestRate} requests per minute`);
   }
 
-  const tokenRate = config.get<number>("ai.rate.tokens");
+  const tokenRate = settings.ai.rate.tokens;
 
   if (tokenRate > 0) {
     logger.message(`⏳ Rate limiting to ${tokenRate} tokens per minute`);
@@ -276,102 +85,6 @@ export function getRateLimitOptions(config: ConfigManager, logger: LogWriter) {
     requestRate,
     tokenRate,
   };
-}
-
-export async function getExemplars(
-  baseDir: string,
-  defaultLanguage: Language,
-  language: Language,
-  config: ConfigManager,
-): Promise<Exemplar[]> {
-  const exemplarPaths = config.get<string[]>("ai.exemplars");
-
-  const exemplars: Exemplar[] = [];
-
-  for (const exemplar of exemplarPaths) {
-    const tree = await buildContentTree(
-      buildPath(exemplar, baseDir),
-      defaultLanguage,
-      language,
-    );
-
-    exemplars.push({
-      path: exemplar,
-      nodes: tree.getFlattenedTree(),
-    });
-  }
-
-  return exemplars;
-}
-
-export function getContextStrategy(config: ConfigManager) {
-  const strategy = config.get<string>("ai.contextStrategy");
-  if (!["everything", "nothing", "siblings"].includes(strategy)) {
-    throw new Error(`Unsupported context strategy ${strategy}`);
-  }
-  return strategy as ContextStrategy;
-}
-
-export async function getStyleGuides(
-  baseDir: string,
-  config: ConfigManager,
-  defaultLanguage: Language,
-  logger: LogWriter,
-  languages?: Language[],
-): Promise<string[]> {
-  const styleGuides = config.get<string[]>("ai.styleGuides");
-  const styleGuideFiles: string[] = [];
-
-  if (styleGuides.length > 0) {
-    logger.message(`📚 Using style guides:`);
-
-    for (const styleGuidePath of styleGuides) {
-      const resolvedPath = buildPath(styleGuidePath, baseDir);
-
-      if (!fs.existsSync(resolvedPath)) {
-        throw new Error(`Failed to load style guide ${resolvedPath}`);
-      }
-
-      const stats = fs.statSync(resolvedPath);
-
-      if (!languages) {
-        languages = [defaultLanguage];
-      }
-
-      if (stats.isDirectory()) {
-        logger.message(`  - ${styleGuidePath}/`);
-
-        for (const language of languages) {
-          const tree = await buildContentTree(resolvedPath, language, language);
-          const contentFiles = tree.getNodes();
-
-          for (const contentFile of contentFiles) {
-            if (contentFile.filePath && contentFile.content) {
-              logger.message(`  -> ${contentFile.filePath}`);
-
-              styleGuideFiles.push(contentFile.content);
-            }
-          }
-        }
-      } else {
-        logger.message(`  - ${styleGuidePath}`);
-
-        const content = fs.readFileSync(resolvedPath, "utf8");
-
-        styleGuideFiles.push(content);
-      }
-    }
-  }
-
-  return styleGuideFiles;
-}
-
-export function shouldEnableCache(contextStrategy: ContextStrategy) {
-  if (contextStrategy === "nothing") {
-    return false;
-  }
-
-  return true;
 }
 
 type CommandAction<T> = (
@@ -402,6 +115,7 @@ export function withErrorHandling<T>(
     }
   };
 }
+
 export async function withSpinner<T>(
   message: string,
   operation: () => Promise<T>,
@@ -417,123 +131,4 @@ export async function withSpinner<T>(
 
     throw error;
   }
-}
-
-export function printTokenUsage(usage: TokenUsage) {
-  let cacheUsage = "";
-
-  if (usage.cacheReadInputTokens) {
-    cacheUsage += ` Cache Read ${usage.cacheReadInputTokens}`;
-  }
-
-  if (usage.cacheWriteInputTokens) {
-    cacheUsage += ` Cache Write ${usage.cacheWriteInputTokens}`;
-  }
-
-  if (cacheUsage) {
-    cacheUsage = ` (${cacheUsage.trim()})`;
-  }
-
-  return `Usage: Input ${usage.inputTokens}${cacheUsage} | Output ${usage.outputTokens} | Total ${usage.totalTokens} | Estimated ${usage.estimatedTokens}`;
-}
-
-export function optionForConfigSchema(command: Command, schema: z.ZodType) {
-  const meta = schema.meta() as z.GlobalMeta | undefined;
-  const cli = meta?.cli ?? "";
-  const flags = camelToOptionFlag(cli);
-  const inner = unwrapSchema(schema);
-
-  let flagString = `${flags} <value>`;
-
-  if (inner instanceof ZodBoolean) {
-    flagString = flags;
-  }
-
-  const option = new Option(flagString, optionDescriptionFromSchema(schema));
-
-  if (inner instanceof ZodArray) {
-    option.argParser(collect);
-  }
-
-  return command.addOption(option);
-}
-
-export function optionDescriptionFromSchema(schema: z.ZodType) {
-  const meta = schema.meta() as z.GlobalMeta | undefined;
-  const env = meta?.envPrefix ? `${meta.envPrefix}_*` : meta?.env;
-
-  let defaultValue = "";
-
-  if (schema instanceof ZodDefault) {
-    defaultValue = `(default: ${JSON.stringify(
-      (schema as ZodDefault<any>)._zod.def.defaultValue,
-    )})`;
-  }
-
-  return `${schema.description} (${env}) ${defaultValue}`;
-}
-
-function unwrapSchema(schema: z.ZodType): z.ZodType {
-  if (schema instanceof ZodDefault) {
-    return (schema as ZodDefault<any>)._zod.def.innerType as z.ZodType;
-  }
-  if (schema instanceof ZodOptional) {
-    return (schema as any)._zod.def.innerType as z.ZodType;
-  }
-  return schema;
-}
-
-/**
- * Converts a camel case string to a kebab case string with a "--" prefix
- *
- * @param camelCase - The camel case string to convert
- * @returns The kebab case string with "--" prefix
- *
- * @example
- * ```ts
- * camelToOptionFlag("check") // returns "--check"
- * camelToOptionFlag("baseDir") // returns "--base-dir"
- * ```
- */
-export function camelToOptionFlag(camelCase: string): string {
-  // Convert camel case to kebab case by finding capital letters and replacing with "-lowercase"
-  const kebabCase = camelCase.replace(/([A-Z])/g, "-$1").toLowerCase();
-
-  // Add the "--" prefix and ensure no double hyphens
-  return `--${kebabCase}`;
-}
-
-const SUPPORTED_MODELS = [
-  "anthropic.claude-opus-4-7",
-  "anthropic.claude-opus-4-6",
-  "anthropic.claude-opus-4-5",
-  "anthropic.claude-sonnet-5",
-  "anthropic.claude-sonnet-4-6",
-  "anthropic.claude-sonnet-4-5",
-  "anthropic.claude-haiku-4-5",
-];
-
-/**
- * Checks whether the given model ID is in the list of supported models.
- */
-export function isSupportedModel(modelId: string): boolean {
-  return SUPPORTED_MODELS.some((model) => modelId.includes(model));
-}
-
-export async function buildContentTree(
-  contentPath: string,
-  defaultLanguage: Language,
-  language: Language,
-  includeLanguageSuffix: boolean = true,
-) {
-  const provider = new FileSystemProvider(contentPath);
-  const entries = await provider.loadContent();
-  const tree = new ContentTree(provider, {
-    defaultLanguage: defaultLanguage.code,
-    language: language.code,
-    includeLanguageSuffix,
-  });
-  entries.forEach(({ path, content }) => tree.add(path, content));
-
-  return tree;
 }

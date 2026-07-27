@@ -1,0 +1,26 @@
+{
+  "operation": "review",
+  "description": "Terminology conventions from a style guide that the content violates, checking the guide is actually applied",
+  "settings": {
+    "contextStrategy": "nothing",
+    "styleGuides": ["style-guide.md"]
+  },
+  "expectations": {
+    "shouldChange": ["module.md"],
+    "mustFix": [
+      {
+        "file": "module.md",
+        "pattern": "\\bk8s\\b",
+        "replacedBy": "Kubernetes"
+      },
+      { "file": "module.md", "pattern": "click on", "replacedBy": "choose" },
+      {
+        "file": "module.md",
+        "pattern": "\\be\\.g\\.",
+        "replacedBy": "for example"
+      }
+    ],
+    "mustPreserve": [{ "file": "module.md", "pattern": "```bash[\\s\\S]*?```" }]
+  },
+  "rubric": "review-quality"
+}

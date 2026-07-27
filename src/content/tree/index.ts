@@ -22,3 +22,5 @@
 
 export * from "./ContentNode.js";
 export * from "./ContentTree.js";
+export * from "./LinkResolver.js";
+export * from "./treeRenderer.js";

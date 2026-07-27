@@ -22,7 +22,11 @@ import {
   CountTokensCommand,
   type ImageFormat,
   type Message,
+  type Tool,
+  type ToolChoice,
+  type ToolResultBlock,
 } from "@aws-sdk/client-bedrock-runtime";
+import type { DocumentType } from "@smithy/types";
 import { z } from "zod";
 import type { Prompt } from "../prompts/index.js";
 import {
@@ -30,8 +34,17 @@ import {
   type RateLimiter,
   SlidingLogRateLimiter,
 } from "./rateLimiting/index.js";
-import type { BedrockClient, BedrockClientGenerateResponse } from "./types.js";
+import type {
+  AgentTool,
+  BedrockClient,
+  BedrockClientGenerateResponse,
+  GenerateWithToolsOptions,
+  GenerateWithToolsResponse,
+  ToolOutcome,
+} from "./types.js";
 import { TokenUsageCounter } from "./utils.js";
+
+const DEFAULT_MAX_TURNS = 10;
 
 const USER_AGENT = process.env.TKMD_AI_USER_AGENT || "toolkit-md";
 
@@ -169,36 +182,7 @@ export class DefaultBedrockClient implements BedrockClient {
   ): Promise<BedrockClientGenerateResponse> {
     const tokenUsageCounter = new TokenUsageCounter();
 
-    const promptText = prompt.prompt;
-    const promptContext = prompt.context;
-
-    const conversation = [
-      {
-        role: "user" as ConversationRole,
-        content: [
-          ...(promptContext ? [{ text: promptContext }] : []),
-
-          ...(cacheEnabled
-            ? [
-                {
-                  cachePoint: {
-                    type: "default" as CachePointType,
-                  },
-                },
-              ]
-            : []),
-          {
-            text: promptText,
-          },
-          ...(prompt.images || []).map((img) => ({
-            image: {
-              format: img.format as ImageFormat,
-              source: { bytes: img.bytes },
-            },
-          })),
-        ],
-      },
-    ];
+    const conversation = [this.buildUserMessage(prompt, cacheEnabled)];
 
     const estimatedTokens = await this.estimateTokens(
       conversation,
@@ -269,6 +253,234 @@ export class DefaultBedrockClient implements BedrockClient {
     return {
       output: response,
       usage: tokenUsageCounter.get(),
+    };
+  }
+
+  /**
+   * Generates AI output by running a multi-turn tool use loop.
+   *
+   * The provided tools are presented to the model, and any tool calls in the
+   * response are validated against the tool's schema and dispatched to its
+   * handler. Handler outcomes drive the loop: `result` and `error` outcomes
+   * are fed back to the model as tool results and the loop continues, while
+   * a `done` outcome terminates the loop. Validation failures are returned
+   * to the model as error results so it can correct itself.
+   *
+   * Rate limits are enforced on every turn. Token usage is accumulated
+   * across all turns.
+   *
+   * @param prompt - The prompt configuration containing text, context, and optional images
+   * @param tools - Tools to present to the model
+   * @param options - Loop options including forced tool choice and turn limit
+   * @returns Promise resolving to the accumulated usage and termination reason
+   *
+   * @throws {Error} When the turn limit is exhausted before the loop terminates
+   * @throws {Error} When the response is truncated because the max token limit was reached
+   * @throws {Error} When an unexpected stop reason is encountered
+   * @throws {Error} When the model calls a tool that was not provided
+   */
+  async generateWithTools(
+    prompt: Prompt,
+    tools: AgentTool[],
+    options: GenerateWithToolsOptions = {},
+  ): Promise<GenerateWithToolsResponse> {
+    const maxTurns = options.maxTurns ?? DEFAULT_MAX_TURNS;
+    const tokenUsageCounter = new TokenUsageCounter();
+    const debug = options.onDebug ?? (() => {});
+    const turnTrace: string[] = [];
+
+    const toolConfigTools: Tool[] = tools.map((tool) => ({
+      toolSpec: {
+        name: tool.name,
+        description: tool.description,
+        inputSchema: {
+          json: z.toJSONSchema(tool.inputSchema) as unknown as DocumentType,
+        },
+      },
+    }));
+
+    const conversation: Message[] = [
+      this.buildUserMessage(prompt, options.cacheEnabled ?? false),
+    ];
+
+    for (let turn = 0; turn < maxTurns; turn++) {
+      let toolChoice: ToolChoice = options.requireTool
+        ? { any: {} }
+        : { auto: {} };
+      if (turn === 0 && options.forceTool) {
+        toolChoice = { tool: { name: options.forceTool } };
+      }
+
+      const command = new ConverseCommand({
+        modelId: this.modelId,
+        messages: [...conversation],
+        inferenceConfig: { maxTokens: this.maxTokens },
+        toolConfig: {
+          tools: toolConfigTools,
+          toolChoice,
+        },
+      });
+
+      const estimatedTokens = await this.estimateTokens(
+        conversation,
+        turn === 0 ? prompt.sampleOutput : undefined,
+      );
+
+      tokenUsageCounter.addEstimated(estimatedTokens);
+
+      await Promise.all([
+        this.requestRateLimiter.waitAndConsume(1),
+        this.tokenRateLimiter.wait(estimatedTokens),
+      ]);
+
+      const timestamp = Date.now();
+
+      const responseObject = await this.client.send(command);
+
+      this.tokenRateLimiter.consume(
+        responseObject.usage?.totalTokens || 0,
+        timestamp,
+      );
+
+      if (responseObject.usage) {
+        tokenUsageCounter.addUsage(responseObject.usage);
+      }
+
+      if (responseObject.stopReason === "max_tokens") {
+        throw new Error(
+          "Response was truncated because the maximum token limit was reached. Increase ai.maxTokens and try again.",
+        );
+      }
+
+      if (responseObject.stopReason === "end_turn") {
+        debug(`Turn ${turn + 1}: model finished with end_turn`);
+        return {
+          usage: tokenUsageCounter.get(),
+          stopReason: "end_turn",
+        };
+      }
+
+      if (responseObject.stopReason !== "tool_use") {
+        throw new Error(`Unexpected stop reason: ${responseObject.stopReason}`);
+      }
+
+      const assistantMessage = responseObject.output?.message;
+
+      if (!assistantMessage) {
+        throw new Error("Model response did not contain a message");
+      }
+
+      conversation.push(assistantMessage);
+
+      const toolUses = (assistantMessage.content ?? [])
+        .map((block) => block.toolUse)
+        .filter((toolUse) => toolUse !== undefined);
+
+      if (toolUses.length === 0) {
+        throw new Error(
+          "Model stopped for tool use but no tool use block was found",
+        );
+      }
+
+      const toolResults: ToolResultBlock[] = [];
+      let done = false;
+
+      for (const toolUse of toolUses) {
+        const outcome = await this.executeTool(tools, toolUse);
+
+        const outcomeDetail =
+          outcome.kind === "error" ? `error: ${outcome.message}` : outcome.kind;
+        turnTrace.push(`turn ${turn + 1}: ${toolUse.name} -> ${outcomeDetail}`);
+        debug(
+          `Turn ${turn + 1}/${maxTurns}: ${toolUse.name} -> ${outcomeDetail}`,
+        );
+
+        if (outcome.kind === "done") {
+          done = true;
+          break;
+        }
+
+        toolResults.push({
+          toolUseId: toolUse.toolUseId,
+          content: [
+            {
+              text:
+                outcome.kind === "result" ? outcome.content : outcome.message,
+            },
+          ],
+          status: outcome.kind === "error" ? "error" : "success",
+        });
+      }
+
+      if (done) {
+        return {
+          usage: tokenUsageCounter.get(),
+          stopReason: "tool",
+        };
+      }
+
+      conversation.push({
+        role: "user",
+        content: toolResults.map((toolResult) => ({ toolResult })),
+      });
+    }
+
+    const recentTrace = turnTrace.slice(-6).join("\n  ");
+
+    throw new Error(
+      `Tool use loop did not complete within ${maxTurns} turns. The model may be stuck retrying failed tool calls. Recent activity:\n  ${recentTrace}`,
+    );
+  }
+
+  private async executeTool(
+    tools: AgentTool[],
+    toolUse: { name?: string; input?: unknown },
+  ): Promise<ToolOutcome> {
+    const tool = tools.find((t) => t.name === toolUse.name);
+
+    if (!tool) {
+      throw new Error(`Model called unknown tool: ${toolUse.name}`);
+    }
+
+    const parsed = tool.inputSchema.safeParse(toolUse.input);
+
+    if (!parsed.success) {
+      return {
+        kind: "error",
+        message: `Invalid input for tool ${tool.name}: ${parsed.error.issues
+          .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+          .join(", ")}`,
+      };
+    }
+
+    return await tool.handler(parsed.data);
+  }
+
+  private buildUserMessage(prompt: Prompt, cacheEnabled: boolean): Message {
+    return {
+      role: "user" as ConversationRole,
+      content: [
+        ...(prompt.context ? [{ text: prompt.context }] : []),
+
+        ...(cacheEnabled
+          ? [
+              {
+                cachePoint: {
+                  type: "default" as CachePointType,
+                },
+              },
+            ]
+          : []),
+        {
+          text: prompt.prompt,
+        },
+        ...(prompt.images || []).map((img) => ({
+          image: {
+            format: img.format as ImageFormat,
+            source: { bytes: img.bytes },
+          },
+        })),
+      ],
     };
   }
 

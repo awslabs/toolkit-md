@@ -1,0 +1,21 @@
+{
+  "operation": "review",
+  "description": "Errors adjacent to frontmatter and trailing content, exercising whitespace and frontmatter discipline",
+  "settings": {
+    "contextStrategy": "nothing"
+  },
+  "expectations": {
+    "shouldChange": ["intro.md"],
+    "mustFix": [
+      {
+        "file": "intro.md",
+        "pattern": "\\bbenifits\\b",
+        "replacedBy": "benefits"
+      }
+    ],
+    "mustPreserve": [
+      { "file": "intro.md", "pattern": "customField: keep-this-value" }
+    ]
+  },
+  "rubric": "review-quality"
+}

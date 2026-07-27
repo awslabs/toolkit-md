@@ -1,0 +1,17 @@
+{
+  "operation": "translate",
+  "description": "Existing French translation with a small source change, the edit-mode sweet spot and the turn-exhaustion regression case",
+  "targetLanguage": "fr",
+  "settings": {
+    "contextStrategy": "nothing"
+  },
+  "expectations": {
+    "mustPreserve": [
+      {
+        "file": "guide.md",
+        "pattern": "kubectl rollout status deployment/sample-app -n workloads"
+      }
+    ]
+  },
+  "rubric": "translate-quality"
+}

@@ -1,0 +1,31 @@
+{
+  "operation": "review",
+  "description": "Common typos and grammar errors across three pages, one page clean",
+  "settings": {
+    "contextStrategy": "nothing"
+  },
+  "expectations": {
+    "shouldChange": ["guide.md", "setup.md"],
+    "shouldNotChange": ["reference.md"],
+    "mustFix": [
+      {
+        "file": "guide.md",
+        "pattern": "\\brecieve\\b",
+        "replacedBy": "receive"
+      },
+      {
+        "file": "guide.md",
+        "pattern": "\\bseperate\\b",
+        "replacedBy": "separate"
+      },
+      { "file": "setup.md", "pattern": "\\bteh\\b", "replacedBy": "the" },
+      {
+        "file": "setup.md",
+        "pattern": "\\boccured\\b",
+        "replacedBy": "occurred"
+      }
+    ],
+    "mustPreserve": [{ "file": "guide.md", "pattern": "```bash[\\s\\S]*?```" }]
+  },
+  "rubric": "review-quality"
+}

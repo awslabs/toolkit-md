@@ -15,4 +15,6 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
-eval
+# Eval run artifacts (baselines are checked in)
+evals/runs/*
+!evals/runs/baselines

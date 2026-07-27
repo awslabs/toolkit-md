@@ -17,10 +17,9 @@
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
-import * as utils from "../../commands/utils.js";
-import { ConfigManager } from "../../config/index.js";
-import { Language } from "../../languages/index.js";
-import { buildBestPracticesPrompt } from "../prompts/bestPracticesPrompt.js";
+import { buildBestPracticesPrompt } from "../ai/prompts/bestPracticesPrompt.js";
+import { validatePathWithinCwd, Workspace } from "../core/workspace.js";
+import { Language } from "../languages/index.js";
 import type { ToolContext } from "./types.js";
 
 export function registerBestPracticesTool(
@@ -48,13 +47,16 @@ export function registerBestPracticesTool(
       },
     },
     async ({ projectDirectory, targetLanguage }) => {
-      utils.validatePathWithinCwd(projectDirectory, cwd);
-      const config = new ConfigManager(projectDirectory);
-      await config.initialize(options);
+      validatePathWithinCwd(projectDirectory, cwd);
 
       const projectDir = path.resolve(projectDirectory);
 
-      const { language, defaultLanguage } = utils.getLanguages(config);
+      const workspace = await Workspace.create(projectDir, {
+        cliOptions: options,
+        logger: noopLogger,
+      });
+
+      const { language } = workspace;
 
       const languages = [language];
 
@@ -68,20 +70,9 @@ export function registerBestPracticesTool(
         languages.push(resolvedTargetLanguage);
       }
 
-      const exemplars = await utils.getExemplars(
-        projectDir,
-        defaultLanguage,
-        language,
-        config,
-      );
+      const exemplars = await workspace.getExemplars();
 
-      const styleGuides = await utils.getStyleGuides(
-        projectDir,
-        config,
-        defaultLanguage,
-        noopLogger,
-        languages,
-      );
+      const styleGuides = await workspace.getStyleGuides(languages);
 
       const prompt = buildBestPracticesPrompt(language, styleGuides, exemplars);
 

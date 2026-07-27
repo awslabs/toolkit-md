@@ -268,4 +268,37 @@ describe("ZodConfigManager", () => {
       expect(configManager.get("ai.maxTokens")).toBe(42);
     });
   });
+
+  describe("resolve", () => {
+    it("should resolve the complete configuration with defaults", async () => {
+      await configManager.initialize({});
+
+      const settings = configManager.resolve();
+
+      expect(settings.language).toBe("en");
+      expect(settings.defaultLanguage).toBe("en");
+      expect(settings.ai.maxTokens).toBe(32000);
+      expect(settings.ai.write).toBe(false);
+      expect(settings.ai.rate.requests).toBe(0);
+      expect(settings.ai.translation.force).toBe(false);
+      expect(settings.check.links.timeout).toBe(5000);
+      expect(settings.check.categories).toEqual(["lint", "link", "image"]);
+    });
+
+    it("should apply precedence when resolving", async () => {
+      mockFs({
+        [path.join(currentDir, ".toolkit-mdrc.json")]: JSON.stringify({
+          ai: { maxTokens: 1000, write: true },
+        }),
+      });
+      process.env.TKMD_AI_MAX_TOKENS = "2000";
+
+      await configManager.initialize({});
+
+      const settings = configManager.resolve();
+
+      expect(settings.ai.maxTokens).toBe(2000);
+      expect(settings.ai.write).toBe(true);
+    });
+  });
 });

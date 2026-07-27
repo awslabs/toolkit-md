@@ -155,6 +155,43 @@ export function generateHash(text: string): string {
 export const TRANSLATION_SRC_HASH_KEY = "tmdTranslationSourceHash";
 export const LEGACY_TRANSLATION_SRC_HASH_KEY = "wsmSourceHash";
 
+const FRONTMATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---/;
+
+/**
+ * Sets the translation source hash in content frontmatter.
+ *
+ * Performs a surgical line-based update that preserves all other
+ * frontmatter formatting: replaces an existing hash entry (including the
+ * deprecated legacy key), appends the key to an existing frontmatter
+ * block, or creates a frontmatter block when none exists.
+ *
+ * @param content - Markdown content with optional frontmatter
+ * @param sourceHash - Hash of the source content to record
+ * @returns Content with the hash set in frontmatter
+ */
+export function setTranslationSourceHash(
+  content: string,
+  sourceHash: string,
+): string {
+  const hashLine = `${TRANSLATION_SRC_HASH_KEY}: ${sourceHash}`;
+
+  const match = content.match(FRONTMATTER_BLOCK);
+
+  if (!match) {
+    return `---\n${hashLine}\n---\n${content}`;
+  }
+
+  const block = match[1];
+  const keyPattern = new RegExp(
+    `^\\s*(?:"?${TRANSLATION_SRC_HASH_KEY}"?|"?${LEGACY_TRANSLATION_SRC_HASH_KEY}"?)\\s*:.*$`,
+  );
+
+  const lines = block.split("\n").filter((line) => !keyPattern.test(line));
+  lines.push(hashLine);
+
+  return content.replace(match[0], `---\n${lines.join("\n")}\n---`);
+}
+
 export interface ProseSegment {
   text: string;
   line: number;

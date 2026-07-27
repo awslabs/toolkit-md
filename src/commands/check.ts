@@ -21,11 +21,10 @@
  * parsing, content tree construction, output formatting, and exit codes.
  */
 
-import chalk from "chalk";
 import { Command } from "commander";
-import { type CheckResult, checkAll } from "../check/index.js";
-import { ConfigManager } from "../config/index.js";
-import type { LogWriter } from "./logger.js";
+import { checkAll, formatCheckResults } from "../check/index.js";
+import type { LogWriter } from "../core/logger.js";
+import { Workspace } from "../core/workspace.js";
 import { logo } from "./logo.js";
 import {
   checkOptions,
@@ -56,98 +55,40 @@ export function createCheckCommand(): Command {
 async function executeAction(
   content: string,
   options: Record<string, unknown>,
-  _logger: LogWriter,
+  logger: LogWriter,
 ): Promise<void> {
   logo();
 
   console.log("Checking content...\n");
 
   const cwd = utils.getCwd(options);
-  const config = new ConfigManager(cwd);
-  await config.initialize(options);
 
-  const { language, defaultLanguage } = utils.getLanguages(config);
-  const contentDir = utils.getContentDirWithTarget(config, content);
-  const rootContentDir = utils.getContentDir(config);
+  const workspace = await Workspace.create(cwd, {
+    cliOptions: options,
+    logger,
+  });
 
-  const tree = await utils.buildContentTree(
-    contentDir,
-    defaultLanguage,
-    language,
-  );
+  const { language } = workspace;
+  const contentDir = workspace.getContentDirWithTarget(content);
+  const rootContentDir = workspace.getContentDir();
+
+  const tree = await workspace.buildTree(contentDir);
 
   const nodes = tree.getFlattenedTree();
 
   const result = await checkAll(nodes, {
-    ...(await utils.getCheckConfig(
-      config,
-      contentDir,
+    ...(await workspace.getCheckConfig(contentDir, {
       rootContentDir,
-      language.code,
-    )),
+      locale: language.code,
+    })),
     contentTree: tree,
   });
 
-  printResults(result, contentDir);
+  console.log(
+    formatCheckResults(result, { baseDir: contentDir, colors: true }),
+  );
 
   if (result.totalErrors > 0) {
     process.exit(1);
-  }
-}
-
-function printResults(result: CheckResult, baseDir: string): void {
-  for (const file of result.files) {
-    const relativePath = file.filePath.startsWith(baseDir)
-      ? file.filePath.substring(baseDir.length + 1)
-      : file.filePath;
-
-    if (file.issues.length === 0) {
-      continue;
-    } else {
-      console.log(chalk.underline(relativePath));
-      for (const issue of file.issues) {
-        const location = chalk.gray(`  ${issue.line}:${issue.column}`);
-        const severity =
-          issue.severity === "error"
-            ? chalk.red(issue.severity)
-            : chalk.yellow(issue.severity);
-        const rule = chalk.gray(issue.rule);
-        const category = chalk.gray(`(${issue.category})`);
-        console.log(
-          `${location}  ${severity}  ${rule}  ${issue.message}  ${category}`,
-        );
-      }
-    }
-
-    console.log();
-  }
-
-  const summary = [];
-  if (result.totalErrors > 0) {
-    summary.push(
-      chalk.red(
-        `${result.totalErrors} error${result.totalErrors !== 1 ? "s" : ""}`,
-      ),
-    );
-  }
-  if (result.totalWarnings > 0) {
-    summary.push(
-      chalk.yellow(
-        `${result.totalWarnings} warning${result.totalWarnings !== 1 ? "s" : ""}`,
-      ),
-    );
-  }
-
-  const fileCount = result.files.length;
-  if (summary.length > 0) {
-    console.log(
-      `\nResults: ${summary.join(", ")} in ${fileCount} file${fileCount !== 1 ? "s" : ""}`,
-    );
-  } else {
-    console.log(
-      chalk.green(
-        `\nAll ${fileCount} file${fileCount !== 1 ? "s" : ""} passed`,
-      ),
-    );
   }
 }

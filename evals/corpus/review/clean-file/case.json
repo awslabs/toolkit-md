@@ -1,0 +1,11 @@
+{
+  "operation": "review",
+  "description": "Well-written content that needs no changes, exercising noop discipline",
+  "settings": {
+    "contextStrategy": "nothing"
+  },
+  "expectations": {
+    "shouldNotChange": ["overview.md", "concepts.md"]
+  },
+  "rubric": "none"
+}

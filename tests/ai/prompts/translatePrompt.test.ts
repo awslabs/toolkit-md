@@ -16,7 +16,11 @@
 
 import { describe, expect, test } from "vitest";
 import type { Exemplar } from "../../../src/ai/index.js";
-import { buildTranslatePrompt } from "../../../src/ai/prompts/translatePrompt";
+import {
+  buildTranslatePrompt,
+  TRANSLATE_WRITE_TOOL_NAME,
+  type TranslatePromptOptions,
+} from "../../../src/ai/prompts/translatePrompt";
 import { TRANSLATION_SRC_HASH_KEY } from "../../../src/content/index.js";
 import type { Language } from "../../../src/languages/index.js";
 import { createMockTree, createMockTreeNode } from "../../testUtils.js";
@@ -32,6 +36,19 @@ describe("buildTranslatePrompt", () => {
     name: "Français",
   };
 
+  function promptOptions(
+    overrides: Partial<TranslatePromptOptions> = {},
+  ): TranslatePromptOptions {
+    return {
+      sourceLanguage: mockSourceLanguage,
+      targetLanguage: mockTargetLanguage,
+      contextStrategy: "nothing",
+      styleGuides: [],
+      exemplars: [],
+      ...overrides,
+    };
+  }
+
   test("should generate translate prompt with basic configuration", () => {
     const tree = createMockTree("en");
     const currentNode = tree.forceAdd(
@@ -39,22 +56,13 @@ describe("buildTranslatePrompt", () => {
       "# Test Content\nThis is test content.",
     );
 
-    const result = buildTranslatePrompt(
-      tree,
-      currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
-    );
+    const result = buildTranslatePrompt(tree, currentNode, promptOptions());
 
     expect(result.prompt).toContain(
       'translate the content provided for file "/content/test.md" to Français (fr-FR)',
     );
     expect(result.prompt).toContain(
-      `'${TRANSLATION_SRC_HASH_KEY}' with value '5187eda312113ceb32b08b11288bb4da'`,
+      `DO NOT add, modify or remove the Markdown frontmatter keys '${TRANSLATION_SRC_HASH_KEY}'`,
     );
     expect(result.prompt).toContain(
       "DO NOT make any changes not related to translating",
@@ -78,12 +86,7 @@ describe("buildTranslatePrompt", () => {
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      existingTranslation,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
+      promptOptions({ existingTranslation }),
     );
 
     expect(result.prompt).toContain("The existing translation for this file");
@@ -111,12 +114,7 @@ describe("buildTranslatePrompt", () => {
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "everything",
-      [],
-      [],
+      promptOptions({ contextStrategy: "everything" }),
     );
 
     expect(result.context).toContain(
@@ -134,23 +132,13 @@ describe("buildTranslatePrompt", () => {
     buildTranslatePrompt(
       tree,
       currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
+      promptOptions({ contextStrategy: "nothing" }),
     );
 
     buildTranslatePrompt(
       tree,
       currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "siblings",
-      [],
-      [],
+      promptOptions({ contextStrategy: "siblings" }),
     );
   });
 
@@ -168,12 +156,7 @@ describe("buildTranslatePrompt", () => {
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      styleGuides,
-      [],
+      promptOptions({ styleGuides }),
     );
 
     expect(result.context).toContain("style guidelines");
@@ -203,12 +186,7 @@ describe("buildTranslatePrompt", () => {
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      exemplars,
+      promptOptions({ exemplars }),
     );
 
     expect(result.context).toContain('<example path="/examples">');
@@ -216,36 +194,26 @@ describe("buildTranslatePrompt", () => {
     expect(result.context).toContain("This is a good example.");
   });
 
-  test("should handle transform function correctly", () => {
+  test("should instruct the model to use the write_file tool", () => {
     const tree = createMockTree("en");
     const currentNode = tree.forceAdd(
       "/content/test.md",
       "# Test Content\nThis is test content.",
     );
 
-    const result = buildTranslatePrompt(
-      tree,
-      currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
+    const result = buildTranslatePrompt(tree, currentNode, promptOptions());
+
+    expect(result.transform).toBeUndefined();
+    expect(result.prompt).toContain(
+      `calling the "${TRANSLATE_WRITE_TOOL_NAME}" tool`,
     );
-
-    expect(result.transform).toBeDefined();
-
-    const mockInput = `<file path="/content/test.md"># Contenu de Test
-Ceci est du contenu de test.</file>`;
-
-    // biome-ignore lint/style/noNonNullAssertion: Will be defined
-    const transformedOutput = result.transform!(mockInput);
-    expect(transformedOutput).toBe(`# Contenu de Test
-Ceci est du contenu de test.`);
   });
 
-  test("should return content regardless of the file path in output", () => {
+  test("should instruct targeted edits in edit mode with an existing translation", () => {
+    const existingTranslation = createMockTreeNode(
+      "/content/test.fr.md",
+      "# Contenu de Test",
+    );
     const tree = createMockTree("en");
     const currentNode = tree.forceAdd(
       "/content/test.md",
@@ -255,19 +223,34 @@ Ceci est du contenu de test.`);
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
+      promptOptions({ existingTranslation, editMode: true }),
     );
 
-    const mockInputWithTargetPath = `<file path="/content/test.es.md">Contenido</file>`;
+    expect(result.prompt).toContain('"edit_file"');
+    expect(result.prompt).toContain('"finish_translation"');
+    expect(result.prompt).not.toContain(
+      "ALWAYS return the entire translated file",
+    );
+    expect(result.prompt).toContain("<existingTranslation>");
+  });
 
-    // biome-ignore lint/style/noNonNullAssertion: Will be defined
-    const transformedOutput = result.transform!(mockInputWithTargetPath);
-    expect(transformedOutput).toBe("Contenido");
+  test("should ignore edit mode when there is no existing translation", () => {
+    const tree = createMockTree("en");
+    const currentNode = tree.forceAdd(
+      "/content/test.md",
+      "# Test Content\nThis is test content.",
+    );
+
+    const result = buildTranslatePrompt(
+      tree,
+      currentNode,
+      promptOptions({ editMode: true }),
+    );
+
+    expect(result.prompt).not.toContain('"edit_file"');
+    expect(result.prompt).toContain(
+      `calling the "${TRANSLATE_WRITE_TOOL_NAME}" tool`,
+    );
   });
 
   test("should handle different language combinations", () => {
@@ -285,12 +268,7 @@ Ceci est du contenu de test.`);
     const result = buildTranslatePrompt(
       tree,
       currentNode,
-      undefined,
-      mockSourceLanguage,
-      spanishLanguage,
-      "nothing",
-      [],
-      [],
+      promptOptions({ targetLanguage: spanishLanguage }),
     );
 
     expect(result.prompt).toContain("to Español (Estados Unidos) (es-US)");
@@ -322,19 +300,9 @@ bash command example
     const tree = createMockTree("en");
     const currentNode = tree.forceAdd("/content/complex.md", complexContent);
 
-    const result = buildTranslatePrompt(
-      tree,
-      currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
-    );
+    const result = buildTranslatePrompt(tree, currentNode, promptOptions());
 
     expect(result.sampleOutput).toBe(complexContent);
-    expect(result.prompt).toContain("5fd2e593a354710152429d6194589eff");
   });
 
   test("should handle empty style guides and exemplars", () => {
@@ -344,16 +312,7 @@ bash command example
       "# Test Content\nThis is test content.",
     );
 
-    const result = buildTranslatePrompt(
-      tree,
-      currentNode,
-      undefined,
-      mockSourceLanguage,
-      mockTargetLanguage,
-      "nothing",
-      [],
-      [],
-    );
+    const result = buildTranslatePrompt(tree, currentNode, promptOptions());
 
     expect(result.context).not.toContain("style guidelines");
     expect(result.context).not.toContain("example_files");

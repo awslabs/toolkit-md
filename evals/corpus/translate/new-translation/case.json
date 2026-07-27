@@ -1,0 +1,15 @@
+{
+  "operation": "translate",
+  "description": "Fresh translation of two pages into French with no existing translation",
+  "targetLanguage": "fr",
+  "settings": {
+    "contextStrategy": "nothing",
+    "editMode": "write"
+  },
+  "expectations": {
+    "mustPreserve": [
+      { "file": "guide.md", "pattern": "kubectl apply -f manifests/" }
+    ]
+  },
+  "rubric": "translate-quality"
+}

@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { checkSpelling } from "../../src/check/spellChecker.js";
-import { loadIgnoreWordsFile } from "../../src/commands/utils.js";
+import { loadIgnoreWordsFile } from "../../src/core/workspace.js";
 
 describe("checkSpelling", () => {
   test("should return no issues for valid content", async () => {

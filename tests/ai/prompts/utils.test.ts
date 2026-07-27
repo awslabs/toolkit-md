@@ -15,116 +15,70 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { extractFileSection } from "../../../src/ai/prompts/utils.js";
+import { buildFileList, getContext } from "../../../src/ai/prompts/utils.js";
+import {
+  createMockEmptyTreeNode,
+  createMockTree,
+  createMockTreeNode,
+} from "../../testUtils.js";
 
-describe("extractFileSection", () => {
-  it("should parse a basic file tag correctly", () => {
-    const input = '<file path="test.txt">Hello World</file>';
-    const result = extractFileSection(input);
+describe("getContext", () => {
+  it("should return all content for the everything strategy", () => {
+    const tree = createMockTree("en");
+    const current = tree.forceAdd("/docs/a.md", "# A");
+    tree.forceAdd("/docs/b.md", "# B");
 
-    expect(result).toEqual({
-      path: "test.txt",
-      content: "Hello World",
-    });
+    const context = getContext(tree, current, "everything");
+
+    expect(context.length).toBe(2);
   });
 
-  it("should handle multiline content", () => {
-    const input = `<file path="multiline.txt">Line 1
-Line 2
-Line 3</file>`;
-    const result = extractFileSection(input);
+  it("should return only the current node for the nothing strategy", () => {
+    const tree = createMockTree("en");
+    const current = tree.forceAdd("/docs/a.md", "# A");
+    tree.forceAdd("/docs/b.md", "# B");
 
-    expect(result).toEqual({
-      path: "multiline.txt",
-      content: "Line 1\nLine 2\nLine 3",
-    });
+    const context = getContext(tree, current, "nothing");
+
+    expect(context).toEqual([current]);
   });
 
-  it("should trim leading whitespace from content", () => {
-    const input =
-      '<file path="whitespace.txt">   Content with leading spaces</file>';
-    const result = extractFileSection(input);
+  it("should return siblings for the siblings strategy", () => {
+    const tree = createMockTree("en");
+    const current = tree.forceAdd("/docs/a.md", "# A");
+    tree.forceAdd("/docs/b.md", "# B");
+    tree.forceAdd("/other/c.md", "# C");
 
-    expect(result).toEqual({
-      path: "whitespace.txt",
-      content: "Content with leading spaces",
-    });
+    const context = getContext(tree, current, "siblings");
+
+    expect(context.map((n) => n.name).sort()).toEqual(["a", "b"]);
+  });
+});
+
+describe("buildFileList", () => {
+  it("should map content nodes to files", () => {
+    const nodes = [
+      createMockTreeNode("/docs/a.md", "# A"),
+      createMockTreeNode("/docs/b.md", "# B"),
+    ];
+
+    const files = buildFileList(nodes);
+
+    expect(files).toEqual([
+      { path: "/docs/a.md", content: "# A" },
+      { path: "/docs/b.md", content: "# B" },
+    ]);
   });
 
-  it("should handle paths with special characters", () => {
-    const input = '<file path="folder/sub-folder/file_name.txt">Content</file>';
-    const result = extractFileSection(input);
+  it("should filter out nodes without content", () => {
+    const nodes = [
+      createMockTreeNode("/docs/a.md", "# A"),
+      createMockEmptyTreeNode("/docs/empty.md"),
+    ];
 
-    expect(result).toEqual({
-      path: "folder/sub-folder/file_name.txt",
-      content: "Content",
-    });
-  });
+    const files = buildFileList(nodes);
 
-  it("should handle empty content", () => {
-    const input = '<file path="empty.txt"></file>';
-    const result = extractFileSection(input);
-
-    expect(result).toEqual({
-      path: "empty.txt",
-      content: "",
-    });
-  });
-
-  it("should handle extra whitespace around attributes", () => {
-    const input = '<file   path="spaced.txt"  >Content</file>';
-    const result = extractFileSection(input);
-
-    expect(result).toEqual({
-      path: "spaced.txt",
-      content: "Content",
-    });
-  });
-
-  it("should throw error for invalid format", () => {
-    const input = "not a file tag";
-
-    expect(() => extractFileSection(input)).toThrow(
-      'Invalid file format: Expected <file path="...">content</file>',
-    );
-  });
-
-  it("should throw error for missing path attribute", () => {
-    const input = "<file>Content without path</file>";
-
-    expect(() => extractFileSection(input)).toThrow(
-      'Invalid file format: Expected <file path="...">content</file>',
-    );
-  });
-
-  it("should throw error for empty path attribute", () => {
-    const input = '<file path="">Content</file>';
-
-    expect(() => extractFileSection(input)).toThrow(
-      "Missing or empty path attribute in file tag",
-    );
-  });
-
-  it("should handle content with XML-like characters", () => {
-    const input =
-      '<file path="xml.txt">Content with <tags> and & symbols</file>';
-    const result = extractFileSection(input);
-
-    expect(result).toEqual({
-      path: "xml.txt",
-      content: "Content with <tags> and & symbols",
-    });
-  });
-
-  it("should handle content with newlines at the beginning", () => {
-    const input = `<file path="newlines.txt">
-First line after newline
-Second line</file>`;
-    const result = extractFileSection(input);
-
-    expect(result).toEqual({
-      path: "newlines.txt",
-      content: "First line after newline\nSecond line",
-    });
+    expect(files.length).toBe(1);
+    expect(files[0].path).toBe("/docs/a.md");
   });
 });

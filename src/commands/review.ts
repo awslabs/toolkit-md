@@ -17,15 +17,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
-import { createPatch } from "diff";
+import { DefaultBedrockClient } from "../ai/index.js";
 import {
-  buildReviewPrompt,
-  buildSummarizePrompt,
-  DefaultBedrockClient,
-  type FileDiff,
-} from "../ai/index.js";
-import { checkNode } from "../check/index.js";
-import {
+  CONFIG_EDIT_MODE,
   CONFIG_INCLUDE_IMAGES,
   CONFIG_MAX_IMAGE_SIZE,
   CONFIG_MAX_IMAGES,
@@ -36,14 +30,18 @@ import {
   CONFIG_REVIEW_SUMMARY_PATH,
   CONFIG_STATIC_DIR,
   CONFIG_STATIC_PREFIX,
-  ConfigManager,
 } from "../config/index.js";
 import {
-  filterDiffByChangedLines,
   type ParsedDiff,
   parseUnifiedDiff,
 } from "../content/utils/diffUtils.js";
-import type { LogWriter } from "./logger.js";
+import type { LogWriter } from "../core/logger.js";
+import {
+  type ReviewEvent,
+  reviewContent,
+  summarizeReview,
+} from "../core/review.js";
+import { shouldEnableCache, Workspace } from "../core/workspace.js";
 import { logo } from "./logo.js";
 import {
   commonAiOptions,
@@ -75,6 +73,7 @@ export function createReviewCommand(): Command {
   utils.optionForConfigSchema(command, CONFIG_REVIEW_DIFF_FILE);
   utils.optionForConfigSchema(command, CONFIG_REVIEW_DIFF_CONTEXT);
   utils.optionForConfigSchema(command, CONFIG_REVIEW_CHECK);
+  utils.optionForConfigSchema(command, CONFIG_EDIT_MODE);
   utils.optionForConfigSchema(command, CONFIG_INCLUDE_IMAGES);
   utils.optionForConfigSchema(command, CONFIG_MAX_IMAGES);
   utils.optionForConfigSchema(command, CONFIG_MAX_IMAGE_SIZE);
@@ -96,40 +95,34 @@ async function executeAction(
 
   const cwd = utils.getCwd(options);
 
-  const config = new ConfigManager(cwd);
-  await config.initialize(options);
-
-  const { language, defaultLanguage } = utils.getLanguages(config);
-
-  const { model, maxTokens } = utils.getCommonAiOptions(config, logger);
-
-  const { requestRate, tokenRate } = utils.getRateLimitOptions(config, logger);
-
-  const write = utils.getWriteOption(config);
-
-  const contextStrategy = utils.getContextStrategy(config);
-
-  const exemplars = await utils.getExemplars(
-    cwd,
-    defaultLanguage,
-    language,
-    config,
-  );
-
-  const styleGuides = await utils.getStyleGuides(
-    cwd,
-    config,
-    defaultLanguage,
+  const workspace = await Workspace.create(cwd, {
+    cliOptions: options,
     logger,
-    [language],
+  });
+
+  const { language, settings } = workspace;
+
+  const { model, maxTokens } = utils.getCommonAiOptions(settings, logger);
+
+  const { requestRate, tokenRate } = utils.getRateLimitOptions(
+    settings,
+    logger,
   );
 
-  const summaryPath = config.get<string>("ai.review.summaryPath");
+  const write = settings.ai.write;
 
-  const instructions = config.get<string | undefined>("ai.review.instructions");
+  const contextStrategy = workspace.getContextStrategy();
 
-  const diffFile = config.get<string | undefined>("ai.review.diffFile");
-  const diffContext = config.get<number>("ai.review.diffContext");
+  const exemplars = await workspace.getExemplars();
+
+  const styleGuides = await workspace.getStyleGuides([language]);
+
+  const summaryPath = settings.ai.review.summaryPath;
+
+  const instructions = settings.ai.review.instructions;
+
+  const diffFile = settings.ai.review.diffFile;
+  const diffContext = settings.ai.review.diffContext;
 
   if (diffFile && write) {
     throw new Error(
@@ -143,21 +136,15 @@ async function executeAction(
 
   console.log("\n");
 
-  const contentDir = utils.getContentDirWithTarget(config, content);
+  const contentDir = workspace.getContentDirWithTarget(content);
 
-  const includeImages = config.get<boolean>("ai.includeImages");
-  const staticPrefix = config.get<string | undefined>("staticPrefix");
-  const staticDir = utils.getStaticDir(config);
-  const maxImages = config.get<number>("ai.maxImages");
-  const maxImageSize = config.get<number>("ai.maxImageSize");
+  const includeImages = settings.ai.includeImages;
+  const staticPrefix = settings.staticPrefix;
+  const staticDir = workspace.getStaticDir();
+  const maxImages = settings.ai.maxImages;
+  const maxImageSize = settings.ai.maxImageSize;
 
-  const tree = await utils.buildContentTree(
-    contentDir,
-    defaultLanguage,
-    language,
-  );
-
-  const nodes = tree.getFlattenedTree();
+  const tree = await workspace.buildTree(contentDir);
 
   let parsedDiff: ParsedDiff | null = null;
   if (diffFile) {
@@ -167,23 +154,8 @@ async function executeAction(
     );
     parsedDiff = parseUnifiedDiff(
       diffContent,
-      path.relative(config.getCwd(), contentDir),
+      path.relative(workspace.config.getCwd(), contentDir),
     );
-
-    const diffFiles = Object.keys(parsedDiff);
-    for (const diffFilePath of diffFiles) {
-      const normalizedDiffPath = path.normalize(diffFilePath);
-      const fileExists = nodes.some((node) => {
-        const nodePath = node.filePath || node.path;
-        return path.normalize(nodePath).endsWith(normalizedDiffPath);
-      });
-
-      if (!fileExists) {
-        throw new Error(
-          `File ${diffFilePath} from diff not found in content tree`,
-        );
-      }
-    }
   }
 
   const client = new DefaultBedrockClient(
@@ -193,109 +165,46 @@ async function executeAction(
     tokenRate,
   );
 
-  const reviewCheck = config.get<boolean>("ai.review.runChecks");
-  const checkOpts = reviewCheck
-    ? await utils.getCheckConfig(
-        config,
-        contentDir,
-        utils.getContentDir(config),
-        language.code,
-      )
+  const reviewCheck = settings.ai.review.runChecks;
+  const checkOptions = reviewCheck
+    ? await workspace.getCheckConfig(contentDir, {
+        rootContentDir: workspace.getContentDir(),
+        locale: language.code,
+      })
     : null;
 
-  const diffs: FileDiff[] = [];
-
-  for (const node of nodes) {
-    if (node.content) {
-      const nodePath = node.filePath || node.path;
-
-      if (parsedDiff) {
-        const normalizedNodePath = path.normalize(nodePath);
-        const isInDiff = Object.keys(parsedDiff).some((diffFilePath) => {
-          const normalizedDiffPath = path.normalize(diffFilePath);
-          return normalizedNodePath.endsWith(normalizedDiffPath);
-        });
-
-        if (!isInDiff) {
-          continue;
-        }
-      }
-
-      const checkIssues = checkOpts
-        ? (await checkNode(node, checkOpts))?.issues
-        : undefined;
-
-      const prompt = await buildReviewPrompt(
-        tree,
-        node,
-        language,
-        contextStrategy,
-        styleGuides,
-        exemplars,
-        instructions,
-        includeImages,
-        maxImages,
-        maxImageSize,
-        staticPrefix,
-        staticDir,
-        checkIssues,
-      );
-
-      const { response } = await utils.withSpinner(
-        `Processing ${node.filePath}`,
-        async () => {
-          return { response: await client.generate(prompt) };
-        },
-      );
-
-      let aiDiff = createPatch(nodePath, node.content, response.output);
-
-      if (parsedDiff) {
-        const normalizedNodePath = path.normalize(nodePath);
-        const diffFilePath = Object.keys(parsedDiff).find((diffPath) => {
-          const normalizedDiffPath = path.normalize(diffPath);
-          return normalizedNodePath.endsWith(normalizedDiffPath);
-        });
-
-        if (diffFilePath) {
-          const changedRanges = parsedDiff[diffFilePath];
-          aiDiff = filterDiffByChangedLines(aiDiff, changedRanges, diffContext);
-
-          if (aiDiff === "") {
-            console.log(`⏭️  Skipped ${nodePath} (no relevant suggestions)\n`);
-            continue;
-          }
-        }
-      }
-
-      diffs.push({
-        path: nodePath,
-        diff: aiDiff,
-      });
-
-      if (write) {
-        await tree.updateContent(node, response.output);
-
-        console.log(`📜 Wrote to file ${node.filePath}`);
-      } else if (!parsedDiff) {
-        utils.displayDiff(node.content, response.output);
-      }
-
-      console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);
-    }
-  }
+  const result = await reviewContent(
+    {
+      tree,
+      client,
+      language,
+      contextStrategy,
+      styleGuides,
+      exemplars,
+      instructions,
+      parsedDiff,
+      diffContext,
+      checkOptions,
+      write,
+      includeImages,
+      maxImages,
+      maxImageSize,
+      staticPrefix,
+      staticDir,
+      cacheEnabled: shouldEnableCache(contextStrategy),
+      editMode: settings.ai.editMode,
+      onDebug: utils.getDebugCallback(options),
+    },
+    (event) => printEvent(event, Boolean(parsedDiff)),
+  );
 
   if (summaryPath.length > 0) {
-    const summaryPrompt = buildSummarizePrompt(diffs);
-
     await utils.withSpinner(`Writing summary to ${summaryPath}`, async () => {
-      const response = await client.generate(summaryPrompt);
-
-      let summaryContent = response.output;
-
-      if (parsedDiff) {
-        summaryContent = `> **Note:** This summary was generated using diff-based filtering. Only suggestions overlapping with changes in the provided diff file are included.\n\n${summaryContent}`;
-      }
+      const summaryContent = await summarizeReview(
+        client,
+        result.diffs,
+        Boolean(parsedDiff),
+      );
 
       fs.writeFileSync(
         utils.buildPath(summaryPath, cwd),
@@ -303,5 +212,32 @@ async function executeAction(
         "utf-8",
       );
     });
+  }
+}
+
+function printEvent(event: ReviewEvent, diffScoped: boolean): void {
+  switch (event.kind) {
+    case "reviewing":
+      console.log(`⏳ Processing ${event.node.filePath}`);
+      break;
+    case "reviewed":
+      if (event.written) {
+        console.log(`📜 Wrote to file ${event.node.filePath}`);
+      } else if (!diffScoped) {
+        utils.displayDiff(event.original, event.revised);
+      }
+      console.log(`\n💰 ${utils.printTokenUsage(event.usage)}\n`);
+      break;
+    case "unchanged":
+      console.log(
+        `✅ No changes needed for ${event.node.filePath}: ${event.summary}`,
+      );
+      console.log(`\n💰 ${utils.printTokenUsage(event.usage)}\n`);
+      break;
+    case "no-suggestions":
+      console.log(
+        `⏭️  Skipped ${event.node.filePath || event.node.path} (no relevant suggestions)\n`,
+      );
+      break;
   }
 }

@@ -1,0 +1,28 @@
+{
+  "operation": "translate",
+  "description": "Terminal comments must be translated while commands and log output stay untouched",
+  "targetLanguage": "ja",
+  "settings": {
+    "contextStrategy": "nothing",
+    "editMode": "write"
+  },
+  "expectations": {
+    "mustPreserve": [
+      {
+        "file": "network-policy.md",
+        "pattern": "grep DENY /host/var/log/aws-routed-eni/network-policy-agent\\.log"
+      },
+      {
+        "file": "network-policy.md",
+        "pattern": "kubectl get po --selector app\\.kubernetes\\.io/component=service -n orders"
+      }
+    ],
+    "mustFix": [
+      {
+        "file": "network-policy.md",
+        "pattern": "# Run these commands inside the pod"
+      }
+    ]
+  },
+  "rubric": "translate-quality"
+}

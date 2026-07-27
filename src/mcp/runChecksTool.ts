@@ -16,10 +16,9 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
-import { checkNode } from "../../check/index.js";
-import type { CheckOptions } from "../../check/types.js";
-import * as utils from "../../commands/utils.js";
-import { ConfigManager } from "../../config/index.js";
+import { checkAll, formatCheckResults } from "../check/index.js";
+import type { CheckOptions } from "../check/types.js";
+import { validatePathWithinCwd, Workspace } from "../core/workspace.js";
 import type { ToolContext } from "./types.js";
 
 export function registerRunChecksTool(
@@ -56,20 +55,17 @@ export function registerRunChecksTool(
       },
     },
     async ({ projectDirectory, files, minSeverity, categories }) => {
-      utils.validatePathWithinCwd(projectDirectory, cwd);
+      validatePathWithinCwd(projectDirectory, cwd);
 
-      const config = new ConfigManager(projectDirectory);
-      await config.initialize(options);
+      const workspace = await Workspace.create(projectDirectory, {
+        cliOptions: options,
+      });
 
-      const { language, defaultLanguage } = utils.getLanguages(config);
+      const { language } = workspace;
 
-      const contentDir = utils.getContentDir(config) ?? projectDirectory;
+      const contentDir = workspace.getContentDir() ?? projectDirectory;
 
-      const tree = await utils.buildContentTree(
-        contentDir,
-        defaultLanguage,
-        language,
-      );
+      const tree = await workspace.buildTree(contentDir);
 
       const allNodes = tree.getFlattenedTree();
 
@@ -84,70 +80,25 @@ export function registerRunChecksTool(
       });
 
       const checkOpts: CheckOptions = {
-        ...(await utils.getCheckConfig(
-          config,
-          contentDir,
-          contentDir,
-          language.code,
-        )),
+        ...(await workspace.getCheckConfig(contentDir, {
+          rootContentDir: contentDir,
+          locale: language.code,
+        })),
         contentTree: tree,
         ...(minSeverity && { minSeverity }),
         ...(categories && { categories }),
       };
 
-      const results: string[] = [];
-      let totalErrors = 0;
-      let totalWarnings = 0;
+      const result = await checkAll(matchedNodes, checkOpts);
 
-      for (const node of matchedNodes) {
-        const result = await checkNode(node, checkOpts);
-
-        if (!result) {
-          continue;
-        }
-
-        for (const issue of result.issues) {
-          if (issue.severity === "error") {
-            totalErrors++;
-          } else {
-            totalWarnings++;
-          }
-        }
-
-        if (result.issues.length === 0) {
-          continue;
-        }
-
-        results.push(result.filePath);
-        for (const issue of result.issues) {
-          results.push(
-            `  ${issue.line}:${issue.column}  ${issue.severity}  ${issue.rule}  ${issue.message}  (${issue.category})`,
-          );
-        }
-      }
-
-      const summary = [];
-      if (totalErrors > 0) {
-        summary.push(`${totalErrors} error${totalErrors !== 1 ? "s" : ""}`);
-      }
-      if (totalWarnings > 0) {
-        summary.push(
-          `${totalWarnings} warning${totalWarnings !== 1 ? "s" : ""}`,
-        );
-      }
-
-      const fileCount = matchedNodes.length;
-      if (summary.length > 0) {
-        results.push(
-          `\nResults: ${summary.join(", ")} in ${fileCount} file${fileCount !== 1 ? "s" : ""}`,
-        );
-      } else {
-        results.push(
-          `\nAll ${fileCount} file${fileCount !== 1 ? "s" : ""} passed`,
-        );
-      }
-
-      return { content: [{ type: "text" as const, text: results.join("\n") }] };
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: formatCheckResults(result),
+          },
+        ],
+      };
     },
   );
 }

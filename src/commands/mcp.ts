@@ -17,17 +17,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Command } from "commander";
+import { VERSION } from "../cli.js";
+import { ConsoleErrorLogger, NoopLogger } from "../core/logger.js";
+import { Language } from "../languages/index.js";
 import {
   registerBestPracticesTool,
   registerContentSummaryTool,
   registerReviewGuidanceTool,
   registerRunChecksTool,
   registerTranslationGuidanceTool,
-} from "../ai/mcp/index.js";
-import type { ToolContext } from "../ai/mcp/types.js";
-import { VERSION } from "../cli.js";
-import { Language } from "../languages/index.js";
-import { ConsoleErrorLogger, NoopLogger } from "./logger.js";
+} from "../mcp/index.js";
+import type { ToolContext } from "../mcp/types.js";
 import { commonOptions, languageOptions } from "./options.js";
 import * as utils from "./utils.js";
 

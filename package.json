@@ -27,6 +27,7 @@
     "debug": "tsx --inspect src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval": "tsx evals/run.ts",
     "license-check": "license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD;Python-2.0' --excludePackages '@cspell/dict-en-common-misspellings@2.1.12' --summary"
   },
   "keywords": [],
@@ -58,6 +59,7 @@
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^11.0.3",
+    "@smithy/types": "^4.16.1",
     "@types/diff": "^6.0.0",
     "@types/license-checker": "^25",
     "@types/mock-fs": "^4.13.4",
