@@ -1,0 +1,17 @@
+{
+  "operation": "translate",
+  "description": "Existing French translation whose source was heavily rewritten, should fall back to whole-file write in edits mode",
+  "targetLanguage": "fr",
+  "settings": {
+    "contextStrategy": "nothing"
+  },
+  "expectations": {
+    "mustPreserve": [
+      {
+        "file": "operations.md",
+        "pattern": "kubectl get events -n workloads --sort-by=\\.lastTimestamp"
+      }
+    ]
+  },
+  "rubric": "translate-quality"
+}

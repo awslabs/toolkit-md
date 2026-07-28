@@ -3,5 +3,5 @@
   "compilerOptions": {
     "rootDir": "src"
   },
-  "exclude": ["tests/**", "vitest.config.ts"]
+  "exclude": ["tests/**", "evals/**", "vitest.config.ts"]
 }

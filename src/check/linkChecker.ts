@@ -26,6 +26,7 @@ import { access } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { LinkReference } from "../content/tree/ContentNode.js";
 import type { ContentTree } from "../content/tree/ContentTree.js";
+import { LinkResolver } from "../content/tree/LinkResolver.js";
 import { resolveStaticPath } from "../content/utils/staticPathUtils.js";
 import type { CheckIssue } from "./types.js";
 
@@ -125,7 +126,7 @@ async function checkLocalLink(
   }
 
   if (contentTree && nodeLogicalPath !== undefined) {
-    const resolved = contentTree.resolveLink(
+    const resolved = new LinkResolver(contentTree).resolve(
       urlWithoutFragment,
       nodeLogicalPath,
     );

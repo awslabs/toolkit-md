@@ -15,7 +15,7 @@
  */
 
 import Handlebars from "handlebars";
-import type { ContentTree } from "../../content/index.js";
+import { type ContentTree, renderTreeMap } from "../../content/index.js";
 import type { Language } from "../../languages/index.js";
 
 const template = `This is a map of Markdown content in this project in {{language.name}}. All files are relative to the following directory:
@@ -41,7 +41,7 @@ export function buildContentMapPrompt(
 
   return promptTemplate({
     rootDir: contentDir,
-    contentMap: tree.getTreeMap(includeImages),
+    contentMap: renderTreeMap(tree.getRoot(), includeImages),
     language,
   }).trim();
 }

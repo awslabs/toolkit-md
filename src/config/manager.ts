@@ -42,6 +42,22 @@ interface ConfigEntry {
   isArray: boolean;
 }
 
+/**
+ * Unwraps ZodDefault and ZodOptional wrappers to expose the inner schema type.
+ *
+ * @param schema - The schema to unwrap
+ * @returns The innermost schema with default/optional wrappers removed
+ */
+export function unwrapSchema(schema: z.ZodType): z.ZodType {
+  if (schema instanceof ZodDefault) {
+    return (schema as ZodDefault<any>)._zod.def.innerType as z.ZodType;
+  }
+  if (schema instanceof ZodOptional) {
+    return (schema as ZodOptional<any>)._zod.def.innerType as z.ZodType;
+  }
+  return schema;
+}
+
 export class ConfigManager {
   private fileConfig: Partial<Config> = {};
   private configFilePath: string | null = null;
@@ -148,6 +164,25 @@ export class ConfigManager {
     return this.configFilePath;
   }
 
+  /**
+   * Resolves the complete configuration into a fully typed object.
+   *
+   * Every schema entry is resolved using the same precedence rules as
+   * {@link get} (CLI > environment > config file > default) and assembled
+   * into the nested Config shape inferred from the schema.
+   *
+   * @returns The fully resolved, validated configuration
+   */
+  public resolve(): Config {
+    const result: any = {};
+
+    for (const entryPath of this.entries.keys()) {
+      this.setNestedProperty(result, entryPath, this.get(entryPath));
+    }
+
+    return result as Config;
+  }
+
   private buildEntries(schema: z.ZodType, prefix: string): void {
     if (schema instanceof ZodObject) {
       for (const [key, value] of Object.entries(
@@ -160,7 +195,7 @@ export class ConfigManager {
     }
 
     const meta = schema.meta() as z.GlobalMeta | undefined;
-    const isArray = this.unwrapSchema(schema) instanceof ZodArray;
+    const isArray = unwrapSchema(schema) instanceof ZodArray;
 
     this.entries.set(prefix, {
       schema,
@@ -169,16 +204,6 @@ export class ConfigManager {
       envPrefix: meta?.envPrefix,
       isArray,
     });
-  }
-
-  private unwrapSchema(schema: z.ZodType): z.ZodType {
-    if (schema instanceof ZodDefault) {
-      return (schema as ZodDefault<any>)._zod.def.innerType as z.ZodType;
-    }
-    if (schema instanceof ZodOptional) {
-      return (schema as ZodOptional<any>)._zod.def.innerType as z.ZodType;
-    }
-    return schema;
   }
 
   /**
@@ -225,6 +250,23 @@ export class ConfigManager {
     } catch (error: any) {
       throw new Error(`Failed to load config file: ${error.message}`);
     }
+  }
+
+  /**
+   * Set a nested property on an object using a dot-notation path
+   */
+  private setNestedProperty(obj: any, path: string, value: any): void {
+    const keys = path.split(".");
+    let current = obj;
+
+    for (const key of keys.slice(0, -1)) {
+      if (current[key] === undefined) {
+        current[key] = {};
+      }
+      current = current[key];
+    }
+
+    current[keys[keys.length - 1]] = value;
   }
 
   /**

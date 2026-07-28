@@ -123,6 +123,14 @@ export const CONFIG_REVIEW_CHECK = z
   )
   .meta({ cli: "reviewCheck", env: "TKMD_AI_REVIEW_CHECK" });
 
+export const CONFIG_EDIT_MODE = z
+  .enum(["write", "edits"])
+  .default("write")
+  .describe(
+    "How the model returns content changes: 'write' rewrites whole files, 'edits' applies targeted edits to reduce output tokens. Only applies to review and to updating existing translations",
+  )
+  .meta({ cli: "editMode", env: "TKMD_AI_EDIT_MODE" });
+
 export const CONFIG_FORCE_TRANSLATION = z
   .boolean()
   .default(false)
@@ -295,6 +303,7 @@ export const configSchema = z.object({
     includeImages: CONFIG_INCLUDE_IMAGES,
     maxImages: CONFIG_MAX_IMAGES,
     maxImageSize: CONFIG_MAX_IMAGE_SIZE,
+    editMode: CONFIG_EDIT_MODE,
     review: z.object({
       summaryPath: CONFIG_REVIEW_SUMMARY_PATH,
       instructions: CONFIG_REVIEW_INSTRUCTIONS,

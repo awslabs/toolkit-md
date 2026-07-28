@@ -19,8 +19,10 @@
  */
 
 import { Command } from "commander";
-import { CONFIG_CONTENT_DIR, ConfigManager } from "../config/index.js";
-import type { LogWriter } from "./logger.js";
+import { CONFIG_CONTENT_DIR } from "../config/index.js";
+import { renderTreeMap } from "../content/index.js";
+import type { LogWriter } from "../core/logger.js";
+import { Workspace } from "../core/workspace.js";
 import { logo } from "./logo.js";
 import { commonOptions, languageOptions } from "./options.js";
 import * as utils from "./utils.js";
@@ -46,23 +48,21 @@ async function executeAction(
   content: string,
   // biome-ignore lint/suspicious/noExplicitAny: Need a better way to handle CLI options
   options: any,
-  _logger: LogWriter,
+  logger: LogWriter,
 ): Promise<void> {
   logo();
 
   const cwd = utils.getCwd(options);
-  const config = new ConfigManager(cwd);
-  await config.initialize(options);
 
-  const { language, defaultLanguage } = utils.getLanguages(config);
-  const contentDir = utils.getContentDirWithTarget(config, content);
+  const workspace = await Workspace.create(cwd, {
+    cliOptions: options,
+    logger,
+  });
+
+  const contentDir = workspace.getContentDirWithTarget(content);
   const includeImages = options.images ?? false;
 
-  const tree = await utils.buildContentTree(
-    contentDir,
-    defaultLanguage,
-    language,
-  );
+  const tree = await workspace.buildTree(contentDir);
 
-  console.log(tree.getTreeMap(includeImages));
+  console.log(renderTreeMap(tree.getRoot(), includeImages));
 }

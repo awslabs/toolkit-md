@@ -15,6 +15,7 @@
  */
 
 export * from "./checker.js";
+export * from "./format.js";
 export * from "./imageChecker.js";
 export * from "./linkChecker.js";
 export * from "./lintChecker.js";

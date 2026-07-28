@@ -40,13 +40,14 @@ import {
 } from "../config/index.js";
 import * as utils from "./utils.js";
 
-export const DEFAULT_MODEL = "global.anthropic.claude-sonnet-4-5-20250929-v1:0";
-export const DEFAULT_MAX_TOKENS = "32000";
-
 export function commonOptions(command: Command) {
   command.option(
     "--cwd <value>",
     "Specify the current working directory for all commands",
+  );
+  command.option(
+    "--debug",
+    "Print debugging output such as model tool activity to stderr",
   );
 }
 
@@ -86,8 +87,6 @@ export function exemplarOption(command: Command) {
 export function styleGuideOption(command: Command) {
   utils.optionForConfigSchema(command, CONFIG_STYLE_GUIDES);
 }
-
-export const DEFAULT_CONTENT_STRATEGY = "everything";
 
 export function contextOptions(command: Command) {
   utils.optionForConfigSchema(command, CONFIG_CONTEXT_STRATEGY);

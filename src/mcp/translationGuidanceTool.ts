@@ -17,10 +17,9 @@
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
-import * as utils from "../../commands/utils.js";
-import { ConfigManager } from "../../config/index.js";
-import { Language } from "../../languages/index.js";
-import { buildTranslationAgentPrompt } from "../prompts/index.js";
+import { buildTranslationAgentPrompt } from "../ai/prompts/index.js";
+import { validatePathWithinCwd, Workspace } from "../core/workspace.js";
+import { Language } from "../languages/index.js";
 import type { ToolContext } from "./types.js";
 
 export function registerTranslationGuidanceTool(
@@ -71,25 +70,27 @@ export function registerTranslationGuidanceTool(
       includeSourceContentMap,
       sourceDirectory,
     }) => {
-      utils.validatePathWithinCwd(projectDirectory, cwd);
-      const config = new ConfigManager(projectDirectory);
-      await config.initialize(options);
+      validatePathWithinCwd(projectDirectory, cwd);
 
       const projectDir = path.resolve(projectDirectory);
 
-      const contentDir = utils.getContentDir(config) || projectDir;
+      const workspace = await Workspace.create(projectDir, {
+        cliOptions: options,
+        logger: noopLogger,
+      });
+
+      const contentDir = workspace.getContentDir() || projectDir;
 
       const resolvedSourceDirectory = sourceDirectory
         ? path.join(contentDir, sourceDirectory)
         : contentDir;
-      const resolvedTargetDirectory = utils.getTranslationDir(
-        config,
+      const resolvedTargetDirectory = workspace.getTranslationDir(
         resolvedSourceDirectory,
       );
 
-      const { language, defaultLanguage } = utils.getLanguages(config);
+      const { language } = workspace;
 
-      var resolvedSourceLanguage: Language | undefined;
+      let resolvedSourceLanguage: Language | undefined;
 
       if (sourceLanguage) {
         resolvedSourceLanguage = Language.getLanguage(sourceLanguage);
@@ -101,13 +102,11 @@ export function registerTranslationGuidanceTool(
         throw new Error(`Invalid source language: ${sourceLanguage}`);
       }
 
-      const sourceTree = await utils.buildContentTree(
-        resolvedSourceDirectory,
-        defaultLanguage,
-        resolvedSourceLanguage,
-      );
+      const sourceTree = await workspace.buildTree(resolvedSourceDirectory, {
+        language: resolvedSourceLanguage,
+      });
 
-      var resolvedTargetLanguage: Language | undefined;
+      let resolvedTargetLanguage: Language | undefined;
 
       if (targetLanguage) {
         resolvedTargetLanguage = Language.getLanguage(targetLanguage);
@@ -117,19 +116,15 @@ export function registerTranslationGuidanceTool(
         throw new Error(`Invalid target language: ${targetLanguage}`);
       }
 
-      const targetTree = await utils.buildContentTree(
-        resolvedSourceDirectory ?? projectDir,
-        defaultLanguage,
-        resolvedTargetLanguage,
+      const targetTree = await workspace.buildTree(
+        resolvedTargetDirectory.translationDir,
+        { language: resolvedTargetLanguage },
       );
 
-      const styleGuides = await utils.getStyleGuides(
-        projectDir,
-        config,
-        defaultLanguage,
-        noopLogger,
-        [language, resolvedTargetLanguage],
-      );
+      const styleGuides = await workspace.getStyleGuides([
+        language,
+        resolvedTargetLanguage,
+      ]);
 
       const prompt = buildTranslationAgentPrompt(
         sourceTree,

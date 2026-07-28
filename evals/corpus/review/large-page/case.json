@@ -1,0 +1,31 @@
+{
+  "operation": "review",
+  "description": "Long single page stressing output integrity (tag leakage, truncation)",
+  "settings": {
+    "contextStrategy": "nothing"
+  },
+  "expectations": {
+    "shouldChange": ["long-module.md"],
+    "mustFix": [
+      {
+        "file": "long-module.md",
+        "pattern": "\\bacheive\\b",
+        "replacedBy": "achieve"
+      },
+      {
+        "file": "long-module.md",
+        "pattern": "\\bcompatable\\b",
+        "replacedBy": "compatible"
+      },
+      {
+        "file": "long-module.md",
+        "pattern": "\\bexistance\\b",
+        "replacedBy": "existence"
+      }
+    ],
+    "mustPreserve": [
+      { "file": "long-module.md", "pattern": "```bash[\\s\\S]*?```" }
+    ]
+  },
+  "rubric": "review-quality"
+}

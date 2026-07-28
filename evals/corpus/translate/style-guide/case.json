@@ -1,0 +1,35 @@
+{
+  "operation": "translate",
+  "description": "Target-language terminology mandated by a style guide that differs from the default rendering, checking the guide is applied during translation",
+  "targetLanguage": "fr",
+  "settings": {
+    "contextStrategy": "nothing",
+    "editMode": "write",
+    "styleGuides": ["style-guide.md"]
+  },
+  "expectations": {
+    "mustFix": [
+      {
+        "file": "scaling.md",
+        "pattern": "\\bcluster\\b",
+        "replacedBy": "grappe"
+      },
+      {
+        "file": "scaling.md",
+        "pattern": "\\bworker node\\b",
+        "replacedBy": "nœud de travail"
+      }
+    ],
+    "mustPreserve": [
+      {
+        "file": "scaling.md",
+        "pattern": "kubectl get nodes"
+      },
+      {
+        "file": "scaling.md",
+        "pattern": "kubectl scale deployment/sample-app -n workloads --replicas=4"
+      }
+    ]
+  },
+  "rubric": "translate-quality"
+}

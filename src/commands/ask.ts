@@ -15,9 +15,10 @@
  */
 
 import { Command } from "commander";
-import { buildAskPrompt, DefaultBedrockClient } from "../ai/index.js";
-import { ConfigManager } from "../config/index.js";
-import type { LogWriter } from "./logger.js";
+import { DefaultBedrockClient } from "../ai/index.js";
+import { askContent } from "../core/ask.js";
+import type { LogWriter } from "../core/logger.js";
+import { Workspace } from "../core/workspace.js";
 import { logo } from "./logo.js";
 import {
   commonAiOptions,
@@ -63,41 +64,29 @@ async function executeAction(
     process.exit(1);
   }
 
-  const config = new ConfigManager(cwd);
-  await config.initialize(options);
-
-  const { language, defaultLanguage } = utils.getLanguages(config);
-
-  const { model, maxTokens } = utils.getCommonAiOptions(config, logger);
-
-  const { requestRate, tokenRate } = utils.getRateLimitOptions(config, logger);
-
-  const exemplars = await utils.getExemplars(
-    cwd,
-    defaultLanguage,
-    language,
-    config,
-  );
-
-  const styleGuides = await utils.getStyleGuides(
-    cwd,
-    config,
-    defaultLanguage,
+  const workspace = await Workspace.create(cwd, {
+    cliOptions: options,
     logger,
-    [language],
+  });
+
+  const { language, settings } = workspace;
+
+  const { model, maxTokens } = utils.getCommonAiOptions(settings, logger);
+
+  const { requestRate, tokenRate } = utils.getRateLimitOptions(
+    settings,
+    logger,
   );
+
+  const exemplars = await workspace.getExemplars();
+
+  const styleGuides = await workspace.getStyleGuides([language]);
 
   console.log("\n");
 
-  const contentDir = utils.getContentDir(config);
+  const contentDir = workspace.getContentDir();
 
-  const tree = await utils.buildContentTree(
-    contentDir || content,
-    defaultLanguage,
-    language,
-  );
-
-  const nodes = tree.getFlattenedTree();
+  const tree = await workspace.buildTree(contentDir || content);
 
   const client = new DefaultBedrockClient(
     model,
@@ -106,22 +95,21 @@ async function executeAction(
     tokenRate,
   );
 
-  const prompt = buildAskPrompt(
-    options.question,
-    nodes,
-    language,
-    styleGuides,
-    exemplars,
-  );
-
-  const { response } = await utils.withSpinner(
+  const { answer, usage } = await utils.withSpinner(
     `Processing question`,
     async () => {
-      return { response: await client.generate(prompt) };
+      return await askContent({
+        tree,
+        client,
+        question: options.question,
+        language,
+        styleGuides,
+        exemplars,
+      });
     },
   );
 
-  console.log(response.output);
+  console.log(answer);
 
-  console.log(`\n💰 ${utils.printTokenUsage(response.usage)}\n`);
+  console.log(`\n💰 ${utils.printTokenUsage(usage)}\n`);
 }

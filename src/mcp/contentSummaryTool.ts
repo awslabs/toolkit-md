@@ -17,10 +17,9 @@
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import z from "zod";
-import * as utils from "../../commands/utils.js";
-import { ConfigManager } from "../../config/index.js";
-import { Language } from "../../languages/index.js";
-import { buildContentSummaryPrompt } from "../prompts/index.js";
+import { buildContentSummaryPrompt } from "../ai/prompts/index.js";
+import { validatePathWithinCwd, Workspace } from "../core/workspace.js";
+import { Language } from "../languages/index.js";
 import type { ToolContext } from "./types.js";
 
 export function registerContentSummaryTool(
@@ -67,22 +66,23 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
       },
     },
     async ({ projectDirectory, language: sourceLanguage, includeImages }) => {
-      utils.validatePathWithinCwd(projectDirectory, cwd);
-
-      const config = new ConfigManager(projectDirectory);
-      await config.initialize(options);
+      validatePathWithinCwd(projectDirectory, cwd);
 
       const projectDir = path.resolve(projectDirectory);
 
-      const contentDir = utils.getContentDir(config);
+      const workspace = await Workspace.create(projectDir, {
+        cliOptions: options,
+      });
+
+      const contentDir = workspace.getContentDir();
 
       if (contentDir) {
-        utils.validatePathWithinCwd(contentDir, cwd);
+        validatePathWithinCwd(contentDir, cwd);
       }
 
-      const { language, defaultLanguage } = utils.getLanguages(config);
+      const { language, defaultLanguage } = workspace;
 
-      var resolvedSourceLanguage: Language | undefined = language;
+      let resolvedSourceLanguage: Language | undefined = language;
 
       if (sourceLanguage) {
         resolvedSourceLanguage = Language.getLanguage(sourceLanguage);
@@ -94,11 +94,7 @@ Use this tool to get a summary of the Markdown content in a project or locate fi
         throw new Error(`Invalid source language: ${sourceLanguage}`);
       }
 
-      const tree = await utils.buildContentTree(
-        contentDir ?? projectDir,
-        defaultLanguage,
-        language,
-      );
+      const tree = await workspace.buildTree(contentDir ?? projectDir);
 
       const prompt = buildContentSummaryPrompt(
         tree,
