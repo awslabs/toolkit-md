@@ -65,8 +65,13 @@ export const caseSettingsSchema = z.object({
 export const caseManifestSchema = z.object({
   operation: z.enum(["review", "translate"]),
   description: z.string(),
-  settings: caseSettingsSchema.default({}),
-  expectations: caseExpectationsSchema.default({}),
+  settings: caseSettingsSchema.default({ styleGuides: [] }),
+  expectations: caseExpectationsSchema.default({
+    shouldChange: [],
+    shouldNotChange: [],
+    mustFix: [],
+    mustPreserve: [],
+  }),
   rubric: z.enum(["review-quality", "translate-quality", "none"]).optional(),
   targetLanguage: z.string().optional(),
   sourceLanguage: z.string().default("en"),

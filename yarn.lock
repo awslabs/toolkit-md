@@ -599,7 +599,7 @@ __metadata:
     "@semantic-release/changelog": "npm:^6.0.3"
     "@semantic-release/git": "npm:^10.0.1"
     "@semantic-release/github": "npm:^11.0.3"
-    "@smithy/types": "npm:^4.16.1"
+    "@smithy/types": "npm:^4.12.0"
     "@types/diff": "npm:^6.0.0"
     "@types/license-checker": "npm:^25"
     "@types/mock-fs": "npm:^4.13.4"
@@ -2959,15 +2959,6 @@ __metadata:
   dependencies:
     tslib: "npm:^2.6.2"
   checksum: 10c0/ac81de3f24b43e52a5089279bced4ff04a853e0bdc80143a234e79f7f40cbd61d85497b08a252265570b4637a3cf265cf85a7a09e5f194937fe30706498640b7
-  languageName: node
-  linkType: hard
-
-"@smithy/types@npm:^4.16.1":
-  version: 4.16.1
-  resolution: "@smithy/types@npm:4.16.1"
-  dependencies:
-    tslib: "npm:^2.6.2"
-  checksum: 10c0/e024d9d148deca7bd21d032a9316db109bbe7cf256ffbb8d3981655b9f4f7695c08ec9b87f5a8cf1442e783ba26cb27e4f09603c5bfa3ba1e526c41b1b3e94d2
   languageName: node
   linkType: hard
 
