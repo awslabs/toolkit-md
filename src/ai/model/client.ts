@@ -51,13 +51,53 @@ function toFoundationModelId(modelId: string): string {
   return modelId.replace(/^(global|us|eu|apac)\./, "");
 }
 
-const TOKEN_COUNT_FALLBACKS: Record<string, string> = {
-  "anthropic.claude-sonnet-5": "anthropic.claude-sonnet-4-6",
-};
+/**
+ * Model used to count tokens on behalf of models that the CountTokens
+ * operation does not support. Token counts are only used to pre-reserve rate
+ * limiter budget, so a closely related model produces a usable estimate.
+ */
+const TOKEN_COUNT_FALLBACK_MODEL = "anthropic.claude-sonnet-4-6";
 
+/**
+ * Foundation model ID prefixes whose models are rejected by the CountTokens
+ * operation. Matched as prefixes so that both bare and versioned model IDs are
+ * covered, consistent with how supported models are matched elsewhere.
+ */
+const TOKEN_COUNT_FALLBACK_PREFIXES = [
+  "anthropic.claude-sonnet-5",
+  "anthropic.claude-opus-4-7",
+  "anthropic.claude-opus-4-8",
+  "anthropic.claude-opus-5",
+  "anthropic.claude-haiku-5-5",
+];
+
+/**
+ * Resolves the model ID to use for the CountTokens operation, substituting a
+ * fallback model for models that do not support token counting.
+ *
+ * @param modelId - The configured model identifier
+ * @returns The model ID to pass to the CountTokens operation
+ */
 function toTokenCountModelId(modelId: string): string {
   const foundationId = toFoundationModelId(modelId);
-  return TOKEN_COUNT_FALLBACKS[foundationId] ?? foundationId;
+
+  const requiresFallback = TOKEN_COUNT_FALLBACK_PREFIXES.some((prefix) =>
+    foundationId.startsWith(prefix),
+  );
+
+  return requiresFallback ? TOKEN_COUNT_FALLBACK_MODEL : foundationId;
+}
+
+/**
+ * Determines whether an error indicates that the CountTokens operation cannot
+ * be performed for the requested model, either because the model rejects the
+ * operation or because the model identifier is not accepted.
+ *
+ * @param error - The error thrown by the CountTokens operation
+ * @returns True when token counting is unavailable for the model
+ */
+function isTokenCountUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.name === "ValidationException";
 }
 
 /**
@@ -272,6 +312,19 @@ export class DefaultBedrockClient implements BedrockClient {
     };
   }
 
+  /**
+   * Estimates the number of input tokens for a conversation using the
+   * CountTokens operation.
+   *
+   * When the model does not support token counting and no fallback model is
+   * configured for it, the estimate degrades to zero rather than failing the
+   * request. The estimate only feeds rate limiter accounting, so a missing
+   * value reduces rate limiting accuracy without affecting generation.
+   *
+   * @param messages - The conversation to count tokens for
+   * @param sampleOutput - Optional representative output used to account for generated tokens
+   * @returns The estimated input token count, or zero when counting is unavailable
+   */
   private async estimateTokens(
     messages: Message[],
     sampleOutput: string | undefined,
@@ -292,8 +345,16 @@ export class DefaultBedrockClient implements BedrockClient {
       },
     });
 
-    const responseObject = await this.client.send(command);
+    try {
+      const responseObject = await this.client.send(command);
 
-    return responseObject.inputTokens ?? 0;
+      return responseObject.inputTokens ?? 0;
+    } catch (error) {
+      if (isTokenCountUnavailable(error)) {
+        return 0;
+      }
+
+      throw error;
+    }
   }
 }

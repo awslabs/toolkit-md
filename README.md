@@ -426,15 +426,22 @@ Toolkit for Markdown uses AWS Bedrock for AI processing. Ensure the following is
 
 The following Amazon Bedrock model IDs are supported:
 
+- `anthropic.claude-opus-5-5`
+- `anthropic.claude-opus-5`
+- `anthropic.claude-opus-4-8`
 - `anthropic.claude-opus-4-7`
-- `anthropic.claude-opus-4-6`
-- `anthropic.claude-opus-4-5`
+- `anthropic.claude-opus-4-6-v1`
+- `anthropic.claude-opus-4-5-20251101-v1:0`
+- `anthropic.claude-sonnet-5-5`
 - `anthropic.claude-sonnet-5`
 - `anthropic.claude-sonnet-4-6`
-- `anthropic.claude-sonnet-4-5`
-- `anthropic.claude-haiku-4-5`
+- `anthropic.claude-sonnet-4-5-20250929-v1:0`
+- `anthropic.claude-haiku-5-5`
+- `anthropic.claude-haiku-4-5-20251001-v1:0`
 
-Model IDs are matched using a prefix, so versioned variants (e.g. `anthropic.claude-sonnet-4-5-20250929-v1:0`) and cross-region inference profiles (e.g. `global.anthropic.claude-sonnet-4-5-20250929-v1:0`) are also supported.
+Each ID can also be used with a cross-region inference profile prefix (e.g. `global.anthropic.claude-sonnet-5-5` or `us.anthropic.claude-sonnet-5-5`). Model availability varies by AWS region and account.
+
+Some models are not supported by the Bedrock `CountTokens` operation. For those models token counts are estimated using a closely related model, and when no estimate is available the reported estimated token count is zero. This affects rate limiting accuracy only and does not change the content that is generated.
 
 ## Commands
 

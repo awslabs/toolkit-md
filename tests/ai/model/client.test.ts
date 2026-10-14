@@ -5,7 +5,9 @@ import {
   CountTokensCommand,
   type Message,
   type StopReason,
+  ThrottlingException,
   type TokenUsage,
+  ValidationException,
 } from "@aws-sdk/client-bedrock-runtime";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -195,58 +197,114 @@ describe("DefaultBedrockClient", () => {
       ]);
     });
 
-    it("should use fallback model for token counting when model does not support it", async () => {
-      const client = createDefaultClient("anthropic.claude-sonnet-5");
+    it.each([
+      "anthropic.claude-sonnet-5",
+      "anthropic.claude-sonnet-5-5",
+      "anthropic.claude-opus-4-7",
+      "anthropic.claude-opus-4-8",
+      "anthropic.claude-opus-5",
+      "anthropic.claude-opus-5-5",
+      "anthropic.claude-haiku-5-5",
+      "global.anthropic.claude-sonnet-5-5",
+      "us.anthropic.claude-opus-5-5",
+      "anthropic.claude-sonnet-5-5-20260101-v1:0",
+    ])(
+      "should use fallback model for token counting with %s",
+      async (modelId) => {
+        const client = createDefaultClient(modelId);
+        const prompt: Prompt = {
+          prompt: "Tell me a joke",
+        };
+
+        bedrockClientMock
+          .on(ConverseCommand)
+          .resolves(createMockResponse("A joke."));
+
+        await client.generate(prompt);
+
+        const countTokensCalls =
+          bedrockClientMock.commandCalls(CountTokensCommand);
+        expect(countTokensCalls.length).toBe(1);
+        expect(countTokensCalls[0].args[0].input.modelId).toBe(
+          "anthropic.claude-sonnet-4-6",
+        );
+
+        expectCommandCall(0, modelId, 1000, [
+          {
+            role: "user" as ConversationRole,
+            content: [{ text: "Tell me a joke" }],
+          },
+        ]);
+      },
+    );
+
+    it.each([
+      "anthropic.claude-sonnet-4-6",
+      "anthropic.claude-sonnet-4-5-20250929-v1:0",
+      "anthropic.claude-opus-4-6-v1",
+      "anthropic.claude-haiku-4-5-20251001-v1:0",
+    ])(
+      "should count tokens with the configured model for %s",
+      async (modelId) => {
+        const client = createDefaultClient(modelId);
+        const prompt: Prompt = {
+          prompt: "Tell me a joke",
+        };
+
+        bedrockClientMock
+          .on(ConverseCommand)
+          .resolves(createMockResponse("A joke."));
+
+        await client.generate(prompt);
+
+        const countTokensCalls =
+          bedrockClientMock.commandCalls(CountTokensCommand);
+        expect(countTokensCalls.length).toBe(1);
+        expect(countTokensCalls[0].args[0].input.modelId).toBe(modelId);
+      },
+    );
+
+    it("should degrade the estimate to zero when token counting is rejected", async () => {
+      const client = createDefaultClient("anthropic.claude-future-1");
       const prompt: Prompt = {
         prompt: "Tell me a joke",
       };
 
+      bedrockClientMock.on(CountTokensCommand).rejects(
+        new ValidationException({
+          message: "The provided model doesn't support counting tokens.",
+          $metadata: {},
+        }),
+      );
       bedrockClientMock
         .on(ConverseCommand)
         .resolves(createMockResponse("A joke."));
 
-      await client.generate(prompt);
+      const result = await client.generate(prompt);
 
-      const countTokensCalls =
-        bedrockClientMock.commandCalls(CountTokensCommand);
-      expect(countTokensCalls.length).toBe(1);
-      expect(countTokensCalls[0].args[0].input.modelId).toBe(
-        "anthropic.claude-sonnet-4-6",
-      );
-
-      expectCommandCall(0, "anthropic.claude-sonnet-5", 1000, [
-        {
-          role: "user" as ConversationRole,
-          content: [{ text: "Tell me a joke" }],
-        },
-      ]);
+      expect(result.output).toBe("A joke.");
+      expect(result.usage.estimatedTokens).toBe(0);
+      expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(1);
     });
 
-    it("should use fallback model for token counting with inference profile prefix", async () => {
-      const client = createDefaultClient("global.anthropic.claude-sonnet-5");
+    it("should propagate token counting errors that are not validation errors", async () => {
+      const client = createDefaultClient();
       const prompt: Prompt = {
         prompt: "Tell me a joke",
       };
 
-      bedrockClientMock
-        .on(ConverseCommand)
-        .resolves(createMockResponse("A joke."));
-
-      await client.generate(prompt);
-
-      const countTokensCalls =
-        bedrockClientMock.commandCalls(CountTokensCommand);
-      expect(countTokensCalls.length).toBe(1);
-      expect(countTokensCalls[0].args[0].input.modelId).toBe(
-        "anthropic.claude-sonnet-4-6",
+      bedrockClientMock.on(CountTokensCommand).rejects(
+        new ThrottlingException({
+          message: "Too many requests.",
+          $metadata: {},
+        }),
       );
 
-      expectCommandCall(0, "global.anthropic.claude-sonnet-5", 1000, [
-        {
-          role: "user" as ConversationRole,
-          content: [{ text: "Tell me a joke" }],
-        },
-      ]);
+      await expect(client.generate(prompt)).rejects.toThrow(
+        "Too many requests.",
+      );
+
+      expect(bedrockClientMock.commandCalls(ConverseCommand).length).toBe(0);
     });
 
     it("should generate a response without context", async () => {
