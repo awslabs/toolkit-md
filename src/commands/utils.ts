@@ -503,23 +503,6 @@ export function camelToOptionFlag(camelCase: string): string {
   return `--${kebabCase}`;
 }
 
-const SUPPORTED_MODELS = [
-  "anthropic.claude-opus-4-7",
-  "anthropic.claude-opus-4-6",
-  "anthropic.claude-opus-4-5",
-  "anthropic.claude-sonnet-5",
-  "anthropic.claude-sonnet-4-6",
-  "anthropic.claude-sonnet-4-5",
-  "anthropic.claude-haiku-4-5",
-];
-
-/**
- * Checks whether the given model ID is in the list of supported models.
- */
-export function isSupportedModel(modelId: string): boolean {
-  return SUPPORTED_MODELS.some((model) => modelId.includes(model));
-}
-
 export async function buildContentTree(
   contentPath: string,
   defaultLanguage: Language,
