@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/awslabs/toolkit-md/compare/v0.3.2...v0.3.3) (2026-10-15)
+
+
+### Bug Fixes
+
+* Properly support newer models with count tokens fallback ([#94](https://github.com/awslabs/toolkit-md/issues/94)) ([91f3ced](https://github.com/awslabs/toolkit-md/commit/91f3ced382bf6a0b07ca24b9d929ae25a03cc70a))
+
 ## [0.3.2](https://github.com/awslabs/toolkit-md/compare/v0.3.1...v0.3.2) (2026-07-25)
 
 
