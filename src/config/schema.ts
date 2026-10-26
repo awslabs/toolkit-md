@@ -49,7 +49,7 @@ export const CONFIG_DEFAULT_LANGUAGE = z
 
 export const CONFIG_MODEL = z
   .string()
-  .default("global.anthropic.claude-sonnet-4-5-20250929-v1:0")
+  .default("global.anthropic.claude-sonnet-5-5")
   .describe("AWS Bedrock model ID")
   .meta({ cli: "model", env: "TKMD_AI_MODEL" });
 
