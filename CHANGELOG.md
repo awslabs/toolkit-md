@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/awslabs/toolkit-md/compare/v0.3.3...v0.4.0) (2026-10-27)
+
+
+### Features
+
+* Bump default model to Sonnet 5.5 ([#105](https://github.com/awslabs/toolkit-md/issues/105)) ([f6c28ee](https://github.com/awslabs/toolkit-md/commit/f6c28eede8a4e07e82d5078431c8625e4b73e5e1))
+
 ## [0.3.3](https://github.com/awslabs/toolkit-md/compare/v0.3.2...v0.3.3) (2026-10-15)
 
 
